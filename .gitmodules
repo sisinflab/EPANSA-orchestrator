@@ -1,0 +1,4 @@
+[submodule "libs/llm_graph_builder"]
+	path = libs/llm_graph_builder
+	url = https://github.com/GabrieleConte/llm-graph-builder.git
+	branch = functional

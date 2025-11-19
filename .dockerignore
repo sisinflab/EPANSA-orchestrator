@@ -1,0 +1,26 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Legacy dependency files (now using pyproject.toml with uv)
+requirements.txt
+libs/llm_graph_builder/requirements.txt
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,76 @@
+# docker-compose.yml
+# Purpose: Local/dev orchestration for EPANSA stack (Postgres, Neo4j, FastAPI).
+# Notes:
+# - Dev-friendly (bind-mounts + --reload). For production, build immutable images and remove bind mounts.
+# - All secrets must come from .env (never commit real credentials). Keep .env out of version control.
+
+services:
+  # PostgreSQL database for storing encrypted OAuth refresh tokens (secure_store.py).
+  postgres:
+    image: postgres:15
+    container_name: epansa-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # PGDATA: /var/lib/postgresql/data/pgdata  # optional hardening
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # healthcheck:
+    #   test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    restart: unless-stopped
+
+  # Neo4j database (enterprise) for the multi-tenant user knowledge graphs.
+  neo4j:
+    image: neo4j:5-enterprise
+    container_name: epansa-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+
+    ports:
+      - "7474:7474"   # Neo4j Browser (HTTP)
+      - "7687:7687"   # Bolt (driver)
+    volumes:
+      - neo4j_data:/data
+      - neo4j_plugins:/plugins
+    restart: unless-stopped
+
+  # FastAPI service exposing the public API (auth, KG endpoints, runtime sync triggers/scheduler).
+  api:
+    build: .
+    container_name: epansa-api
+    command: uvicorn backend.app:app --host 0.0.0.0 --port 5000 --reload  # --reload only for dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app/backend          # dev hot-reload
+      - ./libs:/app/libs                # dev hot-reload for libs
+      - ./data/sync:/app/data/sync
+      - ./data/tmp:/app/data/tmp
+      - ./emb_model_cache:/app/embedding_model
+      - ./emb_model_cache/cache_hf:/root/.cache/huggingface   # for HF model cache
+      - ./client_secret.json:/app/client_secret.json:ro
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - neo4j
+    # healthcheck:
+    #   test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/healthz"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 12
+    restart: unless-stopped
+
+# Named volumes for durable storage across container restarts.
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_plugins:
