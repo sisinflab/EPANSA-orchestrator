@@ -5,7 +5,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Paper**: *EpisTwin: Neuro-Symbolic Personal Knowledge Graphs for Trustworthy Personal AI*  
-> **Authors**: Giovanni Servedio;Potito Aghilar;Alessio Mattiace;Gianni Carmosino;Francesco Musicco;Gabriele Conte;Vito Walter Anelli;Tommaso Di Noia;Francesco Maria Donini
 > **Venue**: IJCAI 2026  
 > **arXiv**: [arXiv link placeholder]
 
@@ -32,7 +31,7 @@ Personal Artificial Intelligence is currently constrained by the fragmentation o
   - [Model Configurations](#model-configurations)
   - [Hyperparameters](#hyperparameters)
 - [Reproducing Experiments](#reproducing-experiments)
-- [Dataset: PersonalQA-71-100](#dataset-personalqa-71-100)
+- [Dataset and Evaluation](#dataset-and-evaluation)
 - [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
 - [Citation](#citation)
@@ -571,59 +570,66 @@ Results are evaluated using multiple judge models as described in the paper. Out
 
 ---
 
-## Dataset: PersonalQA-71-100
+## Dataset and Evaluation
 
-> **Note**: The PersonalQA-71-100 benchmark will be released upon paper acceptance.
+The evaluation benchmark and knowledge base are located in the `evaluation/` directory. See [evaluation/README.md](evaluation/README.md) for detailed documentation following OpenScience standards.
 
-### Overview
+### Knowledge Base
 
-**PersonalQA-71-100** is a synthetic benchmark designed to simulate a realistic user lifecycle for evaluating Personal AI systems. It contains:
+The Personal Knowledge Graph source data resides in `evaluation/knowledge_base/`:
 
-- **71 synthetic user profiles** with diverse backgrounds
-- **100 questions per profile** spanning multiple domains
-- Cross-domain reasoning challenges requiring PKG traversal
-- Visual grounding questions requiring t_VIS activation
+| Directory | Content Description |
+|-----------|---------------------|
+| `epistwin_docs/` | PDF documents (tickets, receipts, manuals) |
+| `epistwin_images/` | Visual data (photos from trips, documents) |
+| `epistwin_jsontxt/` | Structured JSON metadata for graph nodes |
 
-### Dataset Structure
+**Supported Data Types:**
 
+| Source App | Example File | Content Description |
+|:-----------|:-------------|:--------------------|
+| Calendar | `event_8.txt` | Single/recurring events (meetings, gym) |
+| Communication | `phoneCall_3.txt` | Call logs with duration and timestamps |
+| Contacts | `contact_LucasSmith.txt` | Address book entries |
+| Media (Meta) | `photo_20250615.txt` | Image EXIF data (location, time) |
+| Documents | `doc_1.txt` | Metadata linking to files in `epistwin_docs` |
+| Notes | `note_1_content.txt` | Unstructured text (diaries, to-do lists) |
+
+### Benchmark Dataset
+
+The `IJCAI_Test_Dataset.csv` contains ground truth for evaluation with questions requiring cross-modal reasoning:
+
+| Column | Description |
+|--------|-------------|
+| `QUESTION` | Natural language query |
+| `DESIRED ANSWER` | Ground truth based on knowledge base |
+| `ACTUAL ANSWER` | Model's generated response (for evaluation) |
+| `RATING` | Human or synthetic score |
+
+**Sample Question Types:**
+- *Temporal*: "Did I wake up before the alarm last Sunday?"
+- *Cross-Modal*: "Where was I on June 1st at 20:00?" (requires photo metadata)
+- *Reasoning*: "Why was I feeling stressed last Friday?" (correlates calendar with notes)
+
+### Evaluation Pipeline
+
+```bash
+# 1. Run LLM-as-a-Judge evaluation (Prometheus rubric)
+cd evaluation
+python evalu.py
+
+# 2. Normalize and merge results from multiple judges
+python merge_normalization.py
+
+# 3. Calculate Inter-Annotator Agreement metrics
+python all_metrics_normalized.py
 ```
-benchmark/
-├── personalqa_71_100.json      # Main dataset
-├── user_profiles/              # Synthetic user data
-│   ├── user_001/
-│   │   ├── calendar_events.json
-│   │   ├── contacts.json
-│   │   ├── drive_files/
-│   │   └── photos/
-│   └── ...
-├── questions/                  # Evaluation questions
-│   ├── factual.json           # Direct retrieval
-│   ├── temporal.json          # Time-based reasoning
-│   ├── cross_domain.json      # Multi-source integration
-│   └── visual.json            # Requires image analysis
-└── ground_truth/              # Expected answers
-```
 
-### Question Categories
-
-| Category | Count | Description |
-|----------|-------|-------------|
-| Factual | 25% | Direct entity retrieval |
-| Temporal | 25% | Time-based reasoning |
-| Cross-Domain | 30% | Multi-source integration |
-| Visual | 20% | Requires visual refinement |
-
-### Usage
-
-```python
-from benchmark import PersonalQADataset
-
-dataset = PersonalQADataset("benchmark/personalqa_71_100.json")
-for user_id, questions in dataset.iterate():
-    for q in questions:
-        response = epistwin.query(user_id, q.text)
-        score = evaluate(response, q.ground_truth)
-```
+**Metrics Computed:**
+- Cohen's Kappa (Quadratic)
+- Gwet's AC1 (robust to high-agreement paradox)
+- Spearman's Correlation
+- Percentage Agreement
 
 ---
 
