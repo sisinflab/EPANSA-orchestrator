@@ -299,7 +299,7 @@ Output: Visual evidence synthesis a_vis
 
 ### LLM Graph Builder Integration
 
-EpisTwin integrates a modified version of [LLM Graph Builder](https://github.com/neo4j-labs/llm-graph-builder) (Apache 2.0 License) for knowledge graph construction. The library is vendored under `libs/llm_graph_builder/` as a Git submodule.
+EpisTwin integrates a modified version of [LLM Graph Builder](https://github.com/neo4j-labs/llm-graph-builder) (Apache 2.0 License) for knowledge graph construction. The library is vendored directly under `libs/llm_graph_builder/` (not a submodule) to ensure reproducibility and ease of deployment.
 
 #### Key Functions Used
 
@@ -372,8 +372,8 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ### Step 2: Clone and Install Dependencies
 
 ```bash
-git clone https://github.com/[repository]/epistwin.git
-cd epistwin
+git clone https://github.com/sisinflab/EPANSA-orchestrator.git
+cd EPANSA-orchestrator
 
 # Create virtual environment and install all dependencies
 uv sync
@@ -708,9 +708,9 @@ This section documents the resources and procedures required to reproduce the ex
 ### Quick Start (Reproducibility Setup)
 
 ```bash
-# 1. Clone with submodules
-git clone --recurse-submodules https://github.com/[repository]/epistwin.git
-cd epistwin
+# 1. Clone the repository
+git clone https://github.com/sisinflab/EPANSA-orchestrator.git
+cd EPANSA-orchestrator
 
 # 2. Run reproducibility setup script
 chmod +x scripts/setup_reproducibility.sh
@@ -800,8 +800,8 @@ reasoning:
 - [ ] **Configuration**: Complete environment template in `example.env`
 - [ ] **Hyperparameters**: Documented in `config/hyperparameters.yaml`
 - [ ] **Hardware**: Computing infrastructure documented above
-- [ ] **Data**: PersonalQA-71-100 benchmark (to be released upon acceptance)
-- [ ] **External Libraries**: LLM Graph Builder vendored with Apache 2.0 license
+- [ ] **Data**: PersonalQA-71-100 benchmark (available in `evaluation/` directory)
+- [ ] **External Libraries**: LLM Graph Builder vendored directly (Apache 2.0 license)
 
 ### Validation
 
