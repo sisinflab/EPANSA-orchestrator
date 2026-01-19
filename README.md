@@ -1,220 +1,652 @@
-# EPANSA Orchestrator
+# EpisTwin: A Neuro-Symbolic Framework for Personal Knowledge Graph Construction and Reasoning
 
-Multi-tenant knowledge graph system for personal data synchronization with Google services (Calendar, Contacts, Drive, Photos).
+[![IJCAI 2026](https://img.shields.io/badge/IJCAI-2026-blue.svg)](https://2026.ijcai.org/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Overview
+> **Paper**: *EpisTwin: Neuro-Symbolic Personal Knowledge Graphs for Trustworthy Personal AI*  
+> **Authors**: [Authors listed in paper]  
+> **Venue**: IJCAI 2026  
+> **arXiv**: [arXiv link placeholder]
 
-EPANSA Orchestrator is a FastAPI-based backend system that:
-- Authenticates users via Google OAuth
-- Synchronizes data from Google services
-- Builds and maintains personal knowledge graphs in Neo4j
-- Provides secure storage for OAuth tokens in PostgreSQL
-- Uses AI/ML models for data processing and embeddings
+---
 
-## Tech Stack
+## Abstract
 
-- **Python 3.11+** - Core language
-- **FastAPI** - Web framework
-- **Neo4j 5** - Graph database for knowledge graphs
-- **PostgreSQL 15** - Relational database for secure token storage
-- **Docker** - Containerization
-- **uv** - Fast Python package installer and resolver
+Personal Artificial Intelligence is currently constrained by the fragmentation of user data across isolated silos. While Retrieval-Augmented Generation (RAG) offers a partial remedy, its reliance on unstructured vector similarity fails to capture the latent semantic topology and temporal dependencies essential for holistic sensemaking.
 
-## Prerequisites
+**EpisTwin** is a neuro-symbolic framework that grounds generative reasoning in a verifiable, user-centric **Personal Knowledge Graph (PKG)**. The system uses Multimodal Language Models to populate a PKG where heterogeneous data from multiple applications are lifted into semantic triples. At inference time, Graph Retrieval-Augmented Generation enables complex reasoning over the semantic personal graph. The generation of grounded answers is controlled by an **agentic coordinator** that can apply **Visual-Symbolic Transduction**, effectively enabling contextual reasoning over images through a mechanism that dynamically re-grounds symbolic entities in their raw visual payload when epistemic uncertainty is high.
 
-- [uv](https://github.com/astral-sh/uv) - Fast Python package manager
-- Docker and Docker Compose
-- Python 3.11 or higher (if running locally)
+---
 
-## How to setup client_secret.json for Google OAuth
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a new project or select an existing one for Web application.
-3. Navigate to "APIs & Services" > "Credentials".
-4. Click "Create Credentials" and select "OAuth 2.0 Client IDs".
-5. Choose "Web application" as the application type.
-6. Set the authorized redirect URIs to `http://localhost:5000/auth/callback
-7. Download the `client_secret.json` file.
-8. Place the `client_secret.json` file in the project root directory.
+## Table of Contents
 
-### Installing uv
+- [Architecture Overview](#architecture-overview)
+- [Algorithms](#algorithms)
+  - [PKG Population Task (Ψ)](#pkg-population-task-ψ)
+  - [Reasoning Engine](#reasoning-engine)
+- [Repository Structure](#repository-structure)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+  - [Model Configurations](#model-configurations)
+  - [Hyperparameters](#hyperparameters)
+- [Reproducing Experiments](#reproducing-experiments)
+- [Dataset: PersonalQA-71-100](#dataset-personalqa-71-100)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+- [Citation](#citation)
+- [License](#license)
+
+---
+
+## Architecture Overview
+
+<p align="center">
+  <img src="images/PKG_aggregation.pdf" alt="PKG Population Architecture" width="100%"/>
+</p>
+
+**Figure 1**: PKG population when the Information Object is a photo: triples are extracted from both metadata and visual content.
+
+<p align="center">
+  <img src="images/communities_2.pdf" alt="Community Detection" width="100%"/>
+</p>
+
+**Figure 2**: Communities over the PKG: (a) Topologically disjoint entities grouped into shared communities reveal implicit consequentiality. (b) Macroscopic visualization of a PKG populated by entities, relationships, and thematic communities.
+
+### System Components
+
+| Component | Description | Implementation |
+|-----------|-------------|----------------|
+| **PKG Population Engine** | Transforms Information Objects into semantic triples | `backend/services/pkg_population.py` |
+| **GraphRAG Indexer** | Community detection and summarization | `backend/services/initialize_graphRag.py` |
+| **Core Agent (Δ_Core)** | LangGraph-based reasoning orchestrator | `backend/services/conversation.py` |
+| **Fallback Agent (Δ_FB)** | Neural co-routine for unstructured modalities | `backend/services/conversation.py` |
+| **Visual Analyzer (t_VIS)** | Online Visual Refinement via VQA | `backend/services/analyzer.py` |
+| **Image Captioner (τ)** | Visual-to-text transduction | `backend/services/img_description.py` |
+
+### Data Flow
+
+```
+Google Services → Information Objects (σ, μ, c) → PKG Population (Φ_M ∪ Φ_C) → Neo4j PKG
+                                                                                    ↓
+User Query → Core Agent (Δ_Core) → GraphRAG Local Search → Response
+                      ↓ (if v_t = Insufficient)
+              Fallback Agent (Δ_FB) → Visual Refinement (t_VIS) → VQA Analysis
+```
+
+---
+
+## Algorithms
+
+### PKG Population Task (Ψ)
+
+The PKG Population Task models the update function Ψ that transitions the graph from state G^k_u to G^(k+1)_u:
+
+```
+G^(k+1)_u = Ψ(G^k_u, ι^(k+1)) = G^k_u ⊕ (Φ_M(μ) ∪ Φ_C(c))
+```
+
+#### Algorithm 1: PKG Population
+
+```
+Algorithm: PKG_POPULATION(ι, G_u)
+─────────────────────────────────────────────────────────────────
+Input: Information Object ι = (σ, μ, c), Current PKG G_u
+Output: Updated PKG G'_u
+
+1:  // Phase 1: Metadata Triples Extraction (Φ_M)
+2:  T_meta ← ∅
+3:  for each (key, value) ∈ μ do
+4:      predicate ← ρ(key)           // Map key to predicate
+5:      object ← λ(value)            // Cast value to entity/literal
+6:      T_meta ← T_meta ∪ {(n_ι, predicate, object)}
+7:  end for
+
+8:  // Phase 2: Unstructured Content Extraction (Φ_C)
+9:  if c ∈ C_vis then                // Visual content
+10:     ĉ ← τ(c)                     // Apply captioning operator
+11: else
+12:     ĉ ← c                        // Text remains unchanged
+13: end if
+14: T_content ← f_KGC(ĉ)             // LLM-based triple extraction
+
+15: // Phase 3: Graph Merge (⊕ operator)
+16: G_new ← BUILD_SUBGRAPH(T_meta ∪ T_content)
+17: G'_u ← MERGE(G_u, G_new)         // Entity resolution + linking
+
+18: // Phase 4: Community Detection (Post-processing)
+19: P ← LEIDEN(G'_u)                 // Detect community structure
+20: for each P_i ∈ P do
+21:     n_P ← CREATE_COMMUNITY_NODE(P_i)
+22:     S_P ← f_SUM(P_i, T_P)        // Generate summary via LLM
+23:     ATTACH_SUMMARY(n_P, S_P)
+24:     for each n ∈ P_i do
+25:         ADD_EDGE(n, IN_COMMUNITY, n_P)
+26:     end for
+27: end for
+
+28: return G'_u
+─────────────────────────────────────────────────────────────────
+```
+
+**Implementation**: [`backend/services/pkg_population.py`](backend/services/pkg_population.py)
+
+#### Visual Captioning Operator (τ)
+
+The captioning operator τ transforms visual content into textual descriptions:
+
+```
+τ(c) ~ P_φ(· | c, prompt_vis)
+```
+
+**Implementation**: [`backend/services/img_description.py`](backend/services/img_description.py)
+
+---
+
+### Reasoning Engine
+
+The reasoning process is modeled as a sequential decision-making problem with the **Core Agent** Δ_Core acting as the primary controller.
+
+#### Algorithm 2: Agentic Reasoning Workflow
+
+```
+Algorithm: EPISTWIN_REASONING(q, G_u)
+─────────────────────────────────────────────────────────────────
+Input: User query q, Personal Knowledge Graph G_u
+Output: Grounded response r
+
+1:  // Initialize state
+2:  s_0 ← (q, H_0 = ∅)               // H_t is reasoning trajectory
+3:  t ← 0
+
+4:  // Core Agent Loop
+5:  while not TERMINATED do
+6:      // Select action from policy π_θ
+7:      a_t ~ π_θ(a | s_t)           // LLM-parameterized policy
+8:      
+9:      if a_t = GRAPH_SEARCH then
+10:         context ← LOCAL_SEARCH(G_u, q)    // GraphRAG retrieval
+11:         H_t+1 ← H_t ∪ {context}
+12:     
+13:     else if a_t = COMMUNITY_LOOKUP then
+14:         communities ← GET_RELEVANT_COMMUNITIES(G_u, q)
+15:         H_t+1 ← H_t ∪ {communities}
+16:     end if
+17:     
+18:     // Epistemic Verification (Self-Reflection)
+19:     v_t ~ P_φ(v | q, H_t) ∈ {SUFFICIENT, INSUFFICIENT}
+20:     
+21:     if v_t = INSUFFICIENT then
+22:         // Trigger Fallback Agent for Visual Refinement
+23:         E_q ← GET_RELEVANT_ENTITIES(G_u, q)  // Visual entities
+24:         a_vis ← ONLINE_VISUAL_REFINEMENT(q, E_q)
+25:         H_t+1 ← H_t ∪ {a_vis}    // Ephemeral context injection
+26:     end if
+27:     
+28:     s_t+1 ← (q, H_t+1)
+29:     t ← t + 1
+30: end while
+
+31: r ← GENERATE_RESPONSE(q, H_t)
+32: return r
+─────────────────────────────────────────────────────────────────
+```
+
+**Implementation**: [`backend/services/conversation.py`](backend/services/conversation.py)
+
+#### Algorithm 3: Online Visual Refinement (t_VIS)
+
+```
+Algorithm: ONLINE_VISUAL_REFINEMENT(q, E_q)
+─────────────────────────────────────────────────────────────────
+Input: Query q, Relevant entities E_q ⊂ G_u
+Output: Visual evidence synthesis a_vis
+
+1:  // Contextual Fetching
+2:  raw_payloads ← ∅
+3:  for each e ∈ E_q do
+4:      if HAS_VISUAL_PAYLOAD(e) then
+5:          c ← FETCH_RAW_CONTENT(e)    // Original image tensor
+6:          raw_payloads ← raw_payloads ∪ {c}
+7:      end if
+8:  end for
+
+9:  // Neural VQA Injection
+10: answers ← ∅
+11: for each c ∈ raw_payloads do
+12:     a_c ← M_vis(q, c)               // Multimodal LLM inference
+13:     answers ← answers ∪ {a_c}
+14: end for
+
+15: // Aggregate visual evidence
+16: a_vis ← AGGREGATE(answers)          // Natural language synthesis
+17: return a_vis
+─────────────────────────────────────────────────────────────────
+```
+
+**Implementation**: [`backend/services/analyzer.py`](backend/services/analyzer.py)
+
+---
+
+## Repository Structure
+
+```
+.
+├── backend/                      # FastAPI application
+│   ├── app.py                   # Main entry point, lifespan management
+│   ├── core/                    # Core utilities
+│   │   ├── config.py           # Centralized configuration
+│   │   ├── deps.py             # Dependency injection
+│   │   ├── jwt_auth.py         # JWT authentication
+│   │   └── security.py         # Security utilities
+│   ├── models/
+│   │   └── payloads.py         # Pydantic request/response models
+│   ├── routers/
+│   │   ├── auth.py             # OAuth endpoints
+│   │   ├── routers.py          # Main API routes
+│   │   └── sync_runtime.py     # Sync management
+│   └── services/
+│       ├── pkg_population.py   # Φ_M and Φ_C implementation
+│       ├── initialize_graphRag.py  # Community detection & GraphRAG
+│       ├── graphRag_chat.py    # GraphRAG local search
+│       ├── conversation.py     # Core Agent (Δ_Core) & Fallback Agent
+│       ├── analyzer.py         # Visual Refinement (t_VIS)
+│       ├── img_description.py  # Captioning operator (τ)
+│       ├── img_location.py     # Geolocation extraction
+│       ├── google_*.py         # Google service integrations
+│       
+├── data/                        # Runtime data directory
+│   ├── tmp/                    # Temporary processing files
+│   ├── sync/                   # Sync state persistence
+│   
+├── images/                      # Architecture diagrams
+├── benchmark/                   # PersonalQA-71-100 dataset
+├── pyproject.toml              # Dependencies (uv/pip)
+├── uv.lock                     # Locked dependency versions
+├── docker-compose.yml          # Service orchestration
+├── Dockerfile                  # Multi-stage build
+└── example.env                 # Environment template
+```
+
+---
+
+## Installation
+
+### Prerequisites
+
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| Python | ≥ 3.11 | Required for type hints and async features |
+| Docker | ≥ 24.0 | With Docker Compose v2 |
+| [uv](https://github.com/astral-sh/uv) | Latest | Fast Python package manager |
+| CUDA | ≥ 11.8 | Optional, for local model inference |
+
+### Step 1: Install uv Package Manager
 
 ```bash
-# On macOS/Linux
+# macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# On Windows
+# Windows
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-## Local Development Setup
-
-### 1. Install Dependencies
+### Step 2: Clone and Install Dependencies
 
 ```bash
+git clone https://github.com/[repository]/epistwin.git
+cd epistwin
+
 # Create virtual environment and install all dependencies
 uv sync
 
 # Activate the virtual environment
-source .venv/bin/activate  # On macOS/Linux
+source .venv/bin/activate  # macOS/Linux
 # or
-.venv\Scripts\activate  # On Windows
+.venv\Scripts\activate     # Windows
 ```
 
-### 2. Environment Configuration
+### Step 3: Configure Google OAuth
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Navigate to **APIs & Services** → **Credentials**
+4. Click **Create Credentials** → **OAuth 2.0 Client IDs**
+5. Choose **Web application** as the application type
+6. Set authorized redirect URIs to `http://localhost:5000/auth/callback`
+7. Download the `client_secret.json` file
+8. Place `client_secret.json` in the project root directory
+
+### Step 4: Environment Setup
 
 ```bash
-# Copy the example environment file
+# Copy environment template
 cp example.env .env
 
-# Edit .env with your actual configuration
-# - Database credentials
-# - Neo4j credentials
-# - Google OAuth client credentials
-# - JWT secrets
+# Edit .env with your configuration (see Configuration section)
 ```
 
-### 3. Run with Docker Compose
+### Step 5: Launch Services
 
 ```bash
 # Start all services (PostgreSQL, Neo4j, API)
 docker compose up -d
 
-# View logs
+# Verify services are running
+docker compose ps
+
+# View API logs
 docker compose logs -f api
-
-# Stop all services
-docker compose down
 ```
 
-The API will be available at `http://localhost:5000`
-Neo4j Browser will be available at `http://localhost:7474`
+**Service Endpoints:**
+- API: `http://localhost:5000`
+- API Documentation: `http://localhost:5000/docs`
+- Neo4j Browser: `http://localhost:7474`
 
-## Package Management with uv
+---
 
-### Adding Dependencies
+## Configuration
+
+### Environment Variables
+
+#### Database Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `POSTGRES_USER` | PostgreSQL username | `epansa` | Yes |
+| `POSTGRES_PASSWORD` | PostgreSQL password | - | Yes |
+| `POSTGRES_DB` | Database name for token storage | `epansa_tokens` | Yes |
+| `DATABASE_URL` | Full PostgreSQL connection URL | Auto-generated | No |
+| `NEO4J_URI` | Neo4j Bolt connection URI | `bolt://neo4j:7687` | Yes |
+| `NEO4J_USER` | Neo4j username | `neo4j` | Yes |
+| `NEO4J_PASSWORD` | Neo4j password | - | Yes |
+
+#### Security
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `ENCRYPTION_KEY` | Fernet key for token encryption | - | Yes |
+| `JWT_SECRET` | HS256 signing secret (dev only) | - | Yes |
+
+#### Google OAuth
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `GOOGLE_CLIENT_SECRETS_FILE` | Path to OAuth credentials | `client_secret.json` | Yes |
+| `GOOGLE_CLIENT_ID` | OAuth client ID | From JSON file | No |
+| `GOOGLE_CLIENT_SECRET` | OAuth client secret | From JSON file | No |
+| `GOOGLE_REDIRECT_URI` | OAuth callback URL | `http://localhost/` | Yes |
+
+### Model Configurations
+
+EpisTwin uses a unified configuration format for all LLM/VLM components:
+
+```
+provider,model_name,base_url,api_key
+```
+
+#### Supported Providers
+
+| Provider | Config Prefix | Notes |
+|----------|---------------|-------|
+| Groq | `groq` | Fast inference, tool calling support |
+| Google Gemini | `gemini` | Supports thinking budget |
+| Ollama | `ollama` | Local models |
+| OpenAI | `openai` | GPT-4, GPT-4V |
+| Anthropic | `anthropic` | Claude models |
+
+#### Model Role Configuration
+
+| Variable | Purpose | Example Value |
+|----------|---------|---------------|
+| `EXTRACTION_LLM_CONFIG` | Entity extraction (Φ_C) | `groq,llama-3.3-70b-versatile,...` |
+| `COMMUNITIES_LLM_CONFIG` | Community summarization (f_SUM) | `gemini,gemini-2.0-flash,...` |
+| `CHATBOT_LLM_CONFIG` | GraphRAG response generation | `gemini,gemini-2.0-flash,...` |
+| `AGENT_LLM_CONFIG` | Core Agent policy (π_θ) | `groq,qwen/qwen3-32b,...` |
+| `IMG_ANALYSIS_VL_CONFIG` | Visual refinement (M_vis) | `groq,meta-llama/llama-4-scout-17b-16e-instruct,...` |
+| `CHATBOT_EMBEDDING_CONFIG` | Community embeddings | `gemini,text-embedding-004,...` |
+
+### Hyperparameters
+
+#### PKG Population (Φ_C)
+
+| Parameter | Description | Default | Range Explored |
+|-----------|-------------|---------|----------------|
+| `TOKENS_PER_CHUNK` | Token chunk size for text processing | 300 | [100, 500] |
+| `CHUNK_OVERLAP` | Overlap between consecutive chunks | 20 | [10, 50] |
+| `NUMBER_OF_CHUNKS_TO_COMBINE` | Chunks combined for entity extraction | 3 | [1, 5] |
+| `MAX_TOKEN_CHUNK_SIZE` | Max tokens per extraction call | 4000 | [2000, 8000] |
+| `WORDS_FOR_BIG_FILE` | Threshold for large file handling | 500000 | - |
+
+#### Community Detection (Leiden Algorithm)
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| Resolution | Modularity resolution parameter | 1.0 |
+| Min Community Size | Minimum nodes per community | 5 |
+
+#### Reasoning Engine
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| Max Iterations | Maximum reasoning steps | 10 |
+| Temperature (π_θ) | Agent policy temperature | 0.7 |
+| Top-K (Local Search) | Retrieved communities | 5 |
+
+---
+
+## Reproducing Experiments
+
+### Hardware Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| CPU | 8 cores | 16+ cores |
+| RAM | 16 GB | 32 GB |
+| GPU | - | NVIDIA GPU ≥16GB VRAM (for local models) |
+| Storage | 50 GB | 100 GB SSD |
+
+> **Note**: EpisTwin primarily uses cloud-based LLM APIs. GPU is only required if running local models via Ollama.
+
+### Step 1: Setup Environment
 
 ```bash
-# Add a new dependency
-uv add package-name
+# Ensure all services are running
+docker compose up -d
 
-# Add a development dependency
-uv add --dev package-name
-
-# Add a dependency with version constraint
-uv add "package-name>=1.0.0,<2.0.0"
+# Verify Neo4j is ready
+docker compose exec neo4j cypher-shell -u neo4j -p <password> "RETURN 1"
 ```
 
-### Updating Dependencies
+### Step 2: Populate PKG with Test Data
 
 ```bash
-# Update all dependencies
-uv sync --upgrade
+# Authenticate with Google (opens browser)
+python scripts/get_google_code.py
 
-# Update a specific package
-uv add package-name --upgrade
+# Trigger full sync for a user
+curl -X POST http://localhost:5000/sync/trigger \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json"
 ```
 
-### Removing Dependencies
+### Step 3: Run Benchmark Evaluation
 
 ```bash
-# Remove a dependency
-uv remove package-name
+# Run PersonalQA-71-100 evaluation
+python -m benchmark.evaluate \
+  --dataset benchmark/personalqa_71_100.json \
+  --output results/evaluation_results.json
+
+# Generate metrics report
+python -m benchmark.metrics --input results/evaluation_results.json
 ```
 
-## Docker Build
+### Step 4: Analyze Results
 
-The Dockerfile uses a multi-stage build with uv:
+Results are evaluated using multiple judge models as described in the paper. Output includes:
+- Accuracy per question category
+- Reasoning trace analysis
+- Visual refinement trigger frequency
 
-1. **Builder stage**: Installs dependencies using uv into a virtual environment
-2. **Runtime stage**: Copies the virtual environment and application code
+---
 
-Benefits:
-- Smaller final image size
-- Faster builds with better caching
-- Reproducible builds with `uv.lock`
+## Dataset: PersonalQA-71-100
 
-## Project Structure
+> **Note**: The PersonalQA-71-100 benchmark will be released upon paper acceptance.
+
+### Overview
+
+**PersonalQA-71-100** is a synthetic benchmark designed to simulate a realistic user lifecycle for evaluating Personal AI systems. It contains:
+
+- **71 synthetic user profiles** with diverse backgrounds
+- **100 questions per profile** spanning multiple domains
+- Cross-domain reasoning challenges requiring PKG traversal
+- Visual grounding questions requiring t_VIS activation
+
+### Dataset Structure
 
 ```
-.
-├── backend/              # FastAPI application
-│   ├── app.py           # Main application entry point
-│   ├── core/            # Core utilities (config, auth, security)
-│   ├── models/          # Pydantic models
-│   ├── routers/         # API route handlers
-│   └── services/        # Business logic services
-├── libs/                # Shared libraries
-│   └── llm_graph_builder/  # Knowledge graph builder
-├── data/                # Runtime data (sync state, temp files)
-├── pyproject.toml       # Project configuration and dependencies
-├── uv.lock              # Locked dependency versions
-├── Dockerfile           # Multi-stage Docker build
-└── docker-compose.yml   # Service orchestration
+benchmark/
+├── personalqa_71_100.json      # Main dataset
+├── user_profiles/              # Synthetic user data
+│   ├── user_001/
+│   │   ├── calendar_events.json
+│   │   ├── contacts.json
+│   │   ├── drive_files/
+│   │   └── photos/
+│   └── ...
+├── questions/                  # Evaluation questions
+│   ├── factual.json           # Direct retrieval
+│   ├── temporal.json          # Time-based reasoning
+│   ├── cross_domain.json      # Multi-source integration
+│   └── visual.json            # Requires image analysis
+└── ground_truth/              # Expected answers
 ```
 
-## API Endpoints
+### Question Categories
 
-- `POST /auth/login` - Initiate Google OAuth flow
-- `POST /auth/callback` - OAuth callback handler
-- `GET /auth/me` - Get current user info
-- `POST /sync/trigger` - Trigger manual sync for a user
-- More endpoints documented in the FastAPI auto-generated docs at `/docs`
+| Category | Count | Description |
+|----------|-------|-------------|
+| Factual | 25% | Direct entity retrieval |
+| Temporal | 25% | Time-based reasoning |
+| Cross-Domain | 30% | Multi-source integration |
+| Visual | 20% | Requires visual refinement |
 
-## Development Workflow
+### Usage
 
-```bash
-# Install dependencies
-uv sync
+```python
+from benchmark import PersonalQADataset
 
-# Run the API locally (without Docker)
-uvicorn backend.app:app --reload --port 5000
-
-# Run tests (if available)
-uv run pytest
-
-# Format code (if you add formatters)
-uv run black backend/
-uv run isort backend/
-
-# Type checking (if you add mypy)
-uv run mypy backend/
+dataset = PersonalQADataset("benchmark/personalqa_71_100.json")
+for user_id, questions in dataset.iterate():
+    for q in questions:
+        response = epistwin.query(user_id, q.text)
+        score = evaluate(response, q.ground_truth)
 ```
 
-## Migration from requirements.txt
+---
 
-This project has been migrated from `requirements.txt` to `pyproject.toml` with `uv`:
+## API Reference
 
-### Old workflow:
-```bash
-pip install -r requirements.txt
-pip install -r libs/llm_graph_builder/requirements.txt
-```
+### Authentication
 
-### New workflow:
-```bash
-uv sync
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/login` | POST | Initiate Google OAuth flow |
+| `/auth/callback` | GET | OAuth callback handler |
+| `/auth/me` | GET | Get current user info |
 
-All dependencies from both `requirements.txt` files are now consolidated in `pyproject.toml`.
+### Synchronization
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/sync/trigger` | POST | Trigger manual PKG sync |
+| `/sync/status` | GET | Get sync status |
+
+### Reasoning
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/chat` | POST | Query the reasoning engine |
+| `/chat/history` | GET | Get conversation history |
+
+### Full API documentation available at `/docs` when the server is running.
+
+---
 
 ## Troubleshooting
 
-### Docker build fails
-- Ensure you have the latest version of uv in the Dockerfile
-- Clear Docker build cache: `docker builder prune`
+### Docker Issues
 
-### Dependencies not installing
-- Delete `.venv` and run `uv sync` again
-- Check `uv.lock` is committed to version control
+**Problem**: Neo4j fails to start  
+**Solution**: Ensure enterprise license acceptance:
+```bash
+docker compose down -v
+# Verify NEO4J_ACCEPT_LICENSE_AGREEMENT=yes in docker-compose.yml
+docker compose up -d
+```
 
-### Module not found errors
-- Ensure you've activated the virtual environment
-- Run `uv sync` to ensure all dependencies are installed
+**Problem**: API cannot connect to databases  
+**Solution**: Wait for databases to be ready:
+```bash
+docker compose logs neo4j | grep "Started"
+docker compose logs postgres | grep "ready to accept connections"
+```
+
+### Model Configuration
+
+**Problem**: LLM calls failing  
+**Solution**: Verify API keys in `.env`:
+```bash
+# Test Groq connection
+curl -H "Authorization: Bearer $GROQ_API_KEY" \
+  https://api.groq.com/openai/v1/models
+```
+
+### PKG Population
+
+**Problem**: Entity extraction produces empty results  
+**Solution**: Check `MAX_TOKEN_CHUNK_SIZE` is sufficient for your content:
+```bash
+# Increase token limit
+MAX_TOKEN_CHUNK_SIZE=8000
+```
+
+---
+
+## Citation
+
+If you use EpisTwin in your research, please cite:
+
+```bibtex
+@inproceedings{epistwin2026,
+  title     = {EpisTwin: Neuro-Symbolic Personal Knowledge Graphs for Trustworthy Personal AI},
+  author    = {[Authors]},
+  booktitle = {Proceedings of the Thirty-Fifth International Joint Conference on Artificial Intelligence (IJCAI-26)},
+  year      = {2026},
+  note      = {To appear}
+}
+```
+
+---
 
 ## License
 
-[Add your license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contributing
+---
 
-[Add contribution guidelines here]
+## Acknowledgments
+
+- [LangChain](https://github.com/langchain-ai/langchain) and [LangGraph](https://github.com/langchain-ai/langgraph) for agent orchestration
+- [GraphRAG](https://github.com/microsoft/graphrag) for community detection and summarization
+- [Neo4j](https://neo4j.com/) for graph database infrastructure
+
+---
+
+<p align="center">
+  <i>EpisTwin: Grounding Personal AI in Verifiable Knowledge</i>
+</p>
