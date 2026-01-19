@@ -12,7 +12,7 @@ from ollama import Client
 
 # Configuration
 MODEL_NAME = "seamon67/Ministral-3-Reasoning:14b"
-INPUT_CSV = "IJCAI_Test_Dataset.csv"
+INPUT_CSV = "qa_test_dataset.csv"
 OUTPUT_CSV = f"prometheus_eval_results_{MODEL_NAME.split('/')[-1]}.csv"
 
 client = Client()
