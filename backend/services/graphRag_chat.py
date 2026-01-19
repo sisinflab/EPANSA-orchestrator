@@ -13,21 +13,27 @@ from graphrag.query.indexer_adapters import (
     read_indexer_reports,
     read_indexer_text_units,
 )
-from graphrag.query.structured_search.local_search.mixed_context import LocalSearchMixedContext
+from graphrag.query.structured_search.local_search.mixed_context import (
+    LocalSearchMixedContext,
+)
 from graphrag.query.structured_search.local_search.search import LocalSearch
 from graphrag.vector_stores.lancedb import LanceDBVectorStore
 from graphrag.query.context_builder.conversation_history import ConversationHistory
 
-from backend.services.constants import IMG_DEEP_ANALYSIS_SYSTEM_PROMPT, CHATBOT_LLM_CONFIG, CHATBOT_EMBEDDING_CONFIG
+from backend.services.constants import (
+    IMG_DEEP_ANALYSIS_SYSTEM_PROMPT,
+    CHATBOT_LLM_CONFIG,
+    CHATBOT_EMBEDDING_CONFIG,
+)
 
 
 async def chatbot(
-        query: str,
-        conversation_history: ConversationHistory,
-        mode: str,
-        user_input_dir: str,
-        model_env_value: str,
-        embedding_env_value:  str
+    query: str,
+    conversation_history: ConversationHistory,
+    mode: str,
+    user_input_dir: str,
+    model_env_value: str,
+    embedding_env_value: str,
 ):
     COMMUNITY_LEVEL = 0
 
@@ -60,11 +66,19 @@ async def chatbot(
     )
     tokenizer = get_tokenizer(chat_config)
 
-    community_df = pd.read_parquet(f"{user_input_dir}/communities.parquet", engine="pyarrow")
-    community_reports_df = pd.read_parquet(f"{user_input_dir}/community_reports.parquet", engine="pyarrow")
+    community_df = pd.read_parquet(
+        f"{user_input_dir}/communities.parquet", engine="pyarrow"
+    )
+    community_reports_df = pd.read_parquet(
+        f"{user_input_dir}/community_reports.parquet", engine="pyarrow"
+    )
     entity_df = pd.read_parquet(f"{user_input_dir}/entities.parquet", engine="pyarrow")
-    relationship_df = pd.read_parquet(f"{user_input_dir}/relationships.parquet", engine="pyarrow")
-    text_unit_df = pd.read_parquet(f"{user_input_dir}/text_units.parquet", engine="pyarrow")
+    relationship_df = pd.read_parquet(
+        f"{user_input_dir}/relationships.parquet", engine="pyarrow"
+    )
+    text_unit_df = pd.read_parquet(
+        f"{user_input_dir}/text_units.parquet", engine="pyarrow"
+    )
 
     entities = read_indexer_entities(entity_df, community_df, COMMUNITY_LEVEL)
     relationships = read_indexer_relationships(relationship_df)
@@ -132,8 +146,10 @@ async def chatbot(
             response_type="multiple paragraphs",
         )
 
-    result = await search_engine.search(query, conversation_history=conversation_history)
-    cleaned_response = re.sub(r'\[Data:.*?\]', '', result.response)
+    result = await search_engine.search(
+        query, conversation_history=conversation_history
+    )
+    cleaned_response = re.sub(r"\[Data:.*?\]", "", result.response)
     return cleaned_response
 
 
@@ -149,7 +165,10 @@ if __name__ == "__main__":
     async def _test_chatbot():
         """Test function for local development."""
         history = [
-            {"role": "system", "content": "TEMPORAL CONTEXT: DAY: Monday, DATE: 1 September 2025, TIME: 13:00. Use these temporal details only if the question requires time awareness—otherwise ignore them."},
+            {
+                "role": "system",
+                "content": "TEMPORAL CONTEXT: DAY: Monday, DATE: 1 September 2025, TIME: 13:00. Use these temporal details only if the question requires time awareness—otherwise ignore them.",
+            },
         ]
 
         result = await chatbot(

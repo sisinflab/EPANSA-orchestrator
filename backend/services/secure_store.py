@@ -1,5 +1,13 @@
 import logging
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, ForeignKey, Text
+from sqlalchemy import (
+    create_engine,
+    Column,
+    String,
+    DateTime,
+    Integer,
+    ForeignKey,
+    Text,
+)
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.exc import SQLAlchemyError
 from cryptography.fernet import Fernet, InvalidToken
@@ -46,6 +54,7 @@ class UserCredential(Base):
     updated_at : datetime
         Timestamp of the last update for audit tracking.
     """
+
     __tablename__ = "user_credentials"
 
     user_id = Column(String, primary_key=True, index=True)
@@ -62,6 +71,7 @@ class User(Base):
     - `google_id` is the external stable identifier and is unique.
     - `email` is also unique; collisions should be prevented at ingestion time.
     """
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -70,13 +80,17 @@ class User(Base):
     name = Column(String)
 
     # Add relationship to chat messages
-    chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
+    chat_messages = relationship(
+        "ChatMessage", back_populates="user", cascade="all, delete-orphan"
+    )
+
 
 # Data model for chat history
 class ChatMessage(Base):
     """
     Stores one chat message for a user's conversation history.
     """
+
     __tablename__ = "chat_messages"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -135,13 +149,14 @@ class CredentialsService:
                 credential.encrypted_refresh_token = encrypted_token
             else:
                 credential = UserCredential(
-                    user_id=user_id,
-                    encrypted_refresh_token=encrypted_token
+                    user_id=user_id, encrypted_refresh_token=encrypted_token
                 )
                 db.add(credential)
 
             db.commit()
-            logging.info(f"Successfully saved encrypted refresh token for user {user_id}.")
+            logging.info(
+                f"Successfully saved encrypted refresh token for user {user_id}."
+            )
         except SQLAlchemyError as e:
             db.rollback()
             logging.error(f"Database error while saving token for user {user_id}: {e}")
@@ -183,7 +198,9 @@ class CredentialsService:
             )
             return None
         except SQLAlchemyError as e:
-            logging.error(f"Database error while retrieving token for user {user_id}: {e}")
+            logging.error(
+                f"Database error while retrieving token for user {user_id}: {e}"
+            )
             return None
         finally:
             db.close()

@@ -10,9 +10,9 @@ def get_img_description(question: str, img_path: str, VL_model_env_value: str):
     Generates image description using a chain of experts: BLIP2, LLaVA, and Qwen2-VL.
     """
     try:
-        logging.info(f"loading the image...")
+        logging.info("loading the image...")
         with open(img_path, "rb") as file:
-            base64_img = base64.b64encode(file.read()).decode('utf-8')
+            base64_img = base64.b64encode(file.read()).decode("utf-8")
     except Exception as e:
         logging.error(f"Error loading images: {str(e)}")
 
@@ -25,17 +25,14 @@ def get_img_description(question: str, img_path: str, VL_model_env_value: str):
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": f"{question}"
-                        },
+                        {"type": "text", "text": f"{question}"},
                         {
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:image/jpeg;base64,{base64_img}"
-                            }
-                        }
-                    ]
+                            },
+                        },
+                    ],
                 }
             ],
             temperature=0,

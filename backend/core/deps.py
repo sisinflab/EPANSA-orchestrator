@@ -28,6 +28,7 @@ LABELS_WITH_UNIQUES = [
     "Counter",
 ]
 
+
 def _get_driver():
     """
     Return a process-wide Neo4j driver instance.
@@ -51,8 +52,9 @@ def slug_db_name(user_id: str) -> str:
 
     This creates a stable tenant DB name like 'user-1', 'user-2', etc.
     """
-    s = re.sub(r'[^a-zA-Z0-9_]+', '-', user_id).lower()
+    s = re.sub(r"[^a-zA-Z0-9_]+", "-", user_id).lower()
     return f"user-{s}"
+
 
 def get_user_slug(user_id: str) -> str:
     """
@@ -62,7 +64,9 @@ def get_user_slug(user_id: str) -> str:
     return slug_db_name(user_id)
 
 
-def ensure_user_database(db_name: str, user_details: Optional[Dict[str, Any]] = None) -> None:
+def ensure_user_database(
+    db_name: str, user_details: Optional[Dict[str, Any]] = None
+) -> None:
     """
     Create the per-user database if it does not exist, apply model constraints,
     and optionally ensure the User node exists if details are provided.
@@ -86,12 +90,15 @@ def ensure_user_database(db_name: str, user_details: Optional[Dict[str, Any]] = 
 
     _db_cache.add(db_name)
 
+
 def _create_user_node(session: Session, user_details: Dict[str, Any]):
     """
     Create user node in the form of 'Name_ID'.
     """
     if not user_details or user_details.get("id") is None:
-        logger.warning("Skipping user node creation due to missing user_details or user id.")
+        logger.warning(
+            "Skipping user node creation due to missing user_details or user id."
+        )
         return
 
     name_str = user_details.get("name") or ""
@@ -99,7 +106,7 @@ def _create_user_node(session: Session, user_details: Dict[str, Any]):
     safe_name = re.sub(r"[^a-zA-Z0-9]", "", name_str)
 
     parts = [p for p in [safe_name] if p]  # Filter empy parts
-    parts.append(str(user_details['id']))
+    parts.append(str(user_details["id"]))
     username = "_".join(parts)
 
     query = """
@@ -135,19 +142,22 @@ def ensure_constraints(database: Optional[str] = None) -> None:
     This function is safe to call repeatedly (IF NOT EXISTS).
     """
     with get_neo4j(database=database) as s:
-        cy_id = "CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE (n.id) IS UNIQUE"
+        cy_id = (
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE (n.id) IS UNIQUE"
+        )
         cy_src = "CREATE CONSTRAINT IF NOT EXISTS FOR (n:{label}) REQUIRE (n.source_id) IS UNIQUE"
 
-        for label in [l for l in LABELS_WITH_UNIQUES if l != "Counter"]:
+        for label in [lbl for lbl in LABELS_WITH_UNIQUES if lbl != "Counter"]:
             s.run(cy_id.format(label=label)).consume()
             s.run(cy_src.format(label=label)).consume()
 
         # Counter keyed by `name`
-        cy_name = "CREATE CONSTRAINT IF NOT EXISTS FOR (c:Counter) REQUIRE (c.name) IS UNIQUE"
+        cy_name = (
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (c:Counter) REQUIRE (c.name) IS UNIQUE"
+        )
         s.run(cy_name).consume()
 
     logger.info(f"Constraints ensured for database '{database}'")
-
 
 
 def get_request_db(request: Request) -> str:
@@ -163,7 +173,9 @@ def get_request_db(request: Request) -> str:
 
 
 @contextmanager
-def get_neo4j(database: Optional[str] = None, request: Optional[Request] = None) -> Iterator[Session]:
+def get_neo4j(
+    database: Optional[str] = None, request: Optional[Request] = None
+) -> Iterator[Session]:
     """
     Context manager yielding a Neo4j `Session` bound to the correct database.
 

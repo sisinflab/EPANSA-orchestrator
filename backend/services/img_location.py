@@ -109,10 +109,14 @@ def analyze_image(img_path: pathlib.Path) -> Optional[str]:
             lat, lon = coords
             r = reverse_geocode(lat, lon)
             if r:
-                location_desc = [r.get("address").get("road", None), r.get("address").get("quarter", None), r.get("address").get("city", None),
-                                 r.get("address").get("country", None)]
-                return ', '.join([x for x in location_desc if x])
+                location_desc = [
+                    r.get("address").get("road", None),
+                    r.get("address").get("quarter", None),
+                    r.get("address").get("city", None),
+                    r.get("address").get("country", None),
+                ]
+                return ", ".join([x for x in location_desc if x])
 
     else:
-        logging.error(f"FAILED in getting image location")
+        logging.error("FAILED in getting image location")
         return None

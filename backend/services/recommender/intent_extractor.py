@@ -49,16 +49,16 @@ def _extract_and_parse_json(text: str) -> dict:
         return {}
 
     # Find the balanced JSON object
-    start_brace = text.find('{')
+    start_brace = text.find("{")
     if start_brace == -1:
         return {}
 
     end_brace = -1
     brace_count = 0
     for i, char in enumerate(text[start_brace:]):
-        if char == '{':
+        if char == "{":
             brace_count += 1
-        elif char == '}':
+        elif char == "}":
             brace_count -= 1
         if brace_count == 0:
             end_brace = start_brace + i + 1
@@ -76,7 +76,9 @@ def _extract_and_parse_json(text: str) -> dict:
         return {}
 
 
-async def extract_intent_from_question(user_question: str, model_env_value: str = "OPENAI_GPT4O_MINI") -> dict:
+async def extract_intent_from_question(
+    user_question: str, model_env_value: str = "OPENAI_GPT4O_MINI"
+) -> dict:
     """
     Extract an intent JSON from the user's question using an LLM with robust JSON parsing.
     """
@@ -89,19 +91,36 @@ async def extract_intent_from_question(user_question: str, model_env_value: str 
         # +++ USE NEW ROBUST PARSER +++
         intent_json = _extract_and_parse_json(response_str)
         if not intent_json:
-            logging.error(f"Could not extract valid JSON from LLM response: {response_str}")
+            logging.error(
+                f"Could not extract valid JSON from LLM response: {response_str}"
+            )
             return {}
 
         uq_lower = user_question.lower()
 
-        destination_keywords = ["destination", "vacation", "trip", "travel", "journey", "holiday", "weekend"]
+        destination_keywords = [
+            "destination",
+            "vacation",
+            "trip",
+            "travel",
+            "journey",
+            "holiday",
+            "weekend",
+        ]
 
         poi_category = intent_json.get("poi_category", "").lower()
 
         # If a specific location is mentioned, it is NOT a destination search, unless it's a sightseeing query.
         if intent_json.get("location"):
             is_sightseeing_query = any(
-                kw in uq_lower for kw in ["what to see", "what to visit", "things to do", "attractions"])
+                kw in uq_lower
+                for kw in [
+                    "what to see",
+                    "what to visit",
+                    "things to do",
+                    "attractions",
+                ]
+            )
             if is_sightseeing_query:
                 intent_json["poi_category"] = "attractions"
             elif any(keyword in poi_category for keyword in destination_keywords):
@@ -109,14 +128,24 @@ async def extract_intent_from_question(user_question: str, model_env_value: str 
         else:
             # If NO location is mentioned, check for travel-related keywords to force "destination" category.
             if any(keyword in uq_lower for keyword in destination_keywords) or any(
-                    keyword in poi_category for keyword in destination_keywords):
+                keyword in poi_category for keyword in destination_keywords
+            ):
                 intent_json["poi_category"] = "destination"
-                logging.info("Normalized query to 'destination' based on travel keywords.")
+                logging.info(
+                    "Normalized query to 'destination' based on travel keywords."
+                )
 
         # Map common fine-grained words into macro categories (light-touch)
         cat_map = {
-            "architecture": ["architecture", "castle", "church", "cathedral", "monument", "historic site",
-                             "landmark"],
+            "architecture": [
+                "architecture",
+                "castle",
+                "church",
+                "cathedral",
+                "monument",
+                "historic site",
+                "landmark",
+            ],
             "restaurant": ["restaurant", "food", "dining", "eatery", "cafe"],
             "nightlife": ["bar", "pub", "club", "cocktail", "nightlife"],
             "museum": ["museum", "gallery", "art", "exhibition"],

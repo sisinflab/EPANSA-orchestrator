@@ -39,8 +39,7 @@ import json
 import requests
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional, Tuple
-from .io_utils import log, ensure_dir, read_jsonl, append_jsonl
+from .io_utils import log, ensure_dir, read_jsonl
 
 
 API_BASE = "https://places-api.foursquare.com/places"
@@ -80,10 +79,12 @@ def _backoff_sleep(attempt_i: int) -> None:
     """
     Exponential backoff with jitter for rate limits / transient errors.
     """
-    time.sleep((2 ** attempt_i) + random.random())
+    time.sleep((2**attempt_i) + random.random())
 
 
-def _get(session: requests.Session, url: str, params: dict | None = None, retries: int = 5) -> tuple[int, dict | None]:
+def _get(
+    session: requests.Session, url: str, params: dict | None = None, retries: int = 5
+) -> tuple[int, dict | None]:
     """
     Perform a GET with retry logic for rate-limiting / transient errors.
 
@@ -133,7 +134,9 @@ def _fetch_direct(session: requests.Session, fsq_id: str) -> tuple[int, dict | N
     return _get(session, url, params=None)
 
 
-def _search_nearby(session: requests.Session, lat: float, lon: float, query: str) -> tuple[int, dict | None]:
+def _search_nearby(
+    session: requests.Session, lat: float, lon: float, query: str
+) -> tuple[int, dict | None]:
     """
     Try /places/search with lat/lon and a query string (category hint).
 
@@ -166,7 +169,9 @@ def _search_nearby(session: requests.Session, lat: float, lon: float, query: str
     return (200, results[0])
 
 
-def _normalize_place(raw: dict, legacy_id: str | None = None, resolution: str | None = None) -> dict:
+def _normalize_place(
+    raw: dict, legacy_id: str | None = None, resolution: str | None = None
+) -> dict:
     """
     Take a raw Foursquare place JSON and produce a normalized record
     we will store in venue_details.jsonl.
@@ -240,11 +245,7 @@ def fetch_one_with_fallback(session: requests.Session, row: pd.Series) -> dict:
     # Step 1: direct
     status_direct, data_direct = _fetch_direct(session, legacy_id)
     if status_direct == 200 and data_direct:
-        return _normalize_place(
-            data_direct,
-            legacy_id=legacy_id,
-            resolution="direct"
-        )
+        return _normalize_place(data_direct, legacy_id=legacy_id, resolution="direct")
 
     # If direct gave us a retryable or rate limit pattern,
     # status_direct could be "retry_exhausted" or 429/5xx.
@@ -258,9 +259,7 @@ def fetch_one_with_fallback(session: requests.Session, row: pd.Series) -> dict:
             status_resolved, data_resolved = _fetch_direct(session, new_id)
             if status_resolved == 200 and data_resolved:
                 return _normalize_place(
-                    data_resolved,
-                    legacy_id=legacy_id,
-                    resolution="geosearch"
+                    data_resolved, legacy_id=legacy_id, resolution="geosearch"
                 )
 
     # Step 3: give up -> return error record (we still persist it so we don't retry forever)
@@ -276,7 +275,9 @@ def fetch_one_with_fallback(session: requests.Session, row: pd.Series) -> dict:
 # ---------------------------------------------------------------------
 # Public batch API
 # ---------------------------------------------------------------------
-def download_all_enriched(venues_df: pd.DataFrame, out_jsonl: str, max_workers: int = 8) -> None:
+def download_all_enriched(
+    venues_df: pd.DataFrame, out_jsonl: str, max_workers: int = 8
+) -> None:
     """
     Fetch details for all POIs in venues_df and write them to out_jsonl.
 
@@ -307,19 +308,21 @@ def download_all_enriched(venues_df: pd.DataFrame, out_jsonl: str, max_workers: 
 
     # Subset to only not-yet-fetched venues
     todo_rows = [
-        row for _, row in venues_df.iterrows()
-        if str(row["venue_id"]) not in seen_ids
+        row for _, row in venues_df.iterrows() if str(row["venue_id"]) not in seen_ids
     ]
 
     log.info(f"Already cached: {len(seen_ids)} venues")
     log.info(f"To fetch now: {len(todo_rows)} venues")
 
     # We'll open the file in append mode so we don't destroy old data
-    with requests.Session() as session, \
-         open(out_jsonl, "a", encoding="utf-8") as f, \
-         ThreadPoolExecutor(max_workers=max_workers) as pool:
-
-        futures = {pool.submit(fetch_one_with_fallback, session, row): row for row in todo_rows}
+    with (
+        requests.Session() as session,
+        open(out_jsonl, "a", encoding="utf-8") as f,
+        ThreadPoolExecutor(max_workers=max_workers) as pool,
+    ):
+        futures = {
+            pool.submit(fetch_one_with_fallback, session, row): row for row in todo_rows
+        }
 
         for fut in as_completed(futures):
             data = fut.result()

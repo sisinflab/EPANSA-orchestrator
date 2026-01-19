@@ -1,5 +1,4 @@
 import os
-import math
 import numpy as np
 from typing import List
 import pandas as pd
@@ -61,8 +60,13 @@ class TransformersEmbeddingEncoder:
       tokenizer max length.
     """
 
-    def __init__(self, model_name: str | None = None, batch_size: int | None = None, device: str | None = None,
-                 max_length: int | None = None):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        batch_size: int | None = None,
+        device: str | None = None,
+        max_length: int | None = None,
+    ):
         self.model_name = model_name or MODEL_NAME
         self.batch_size = int(batch_size or EMB_BATCH)
         self.max_length = int(max_length or MAX_LEN)
@@ -82,20 +86,34 @@ class TransformersEmbeddingEncoder:
             except Exception:
                 pass
 
-        log.info(f"Loading tokenizer & model '{self.model_name}' on device={self.device} (batch={self.batch_size})")
+        log.info(
+            f"Loading tokenizer & model '{self.model_name}' on device={self.device} (batch={self.batch_size})"
+        )
         self.tok = AutoTokenizer.from_pretrained(self.model_name, **hf_kwargs)
         # Model loading: for very large models you may want device_map="auto" and accelerate/transformers 4.30+
         try:
-            self.mdl = AutoModel.from_pretrained(self.model_name, **load_kwargs, **hf_kwargs).to(self.device)
+            self.mdl = AutoModel.from_pretrained(
+                self.model_name, **load_kwargs, **hf_kwargs
+            ).to(self.device)
         except Exception as e:
             # fallback: try without some load kwargs
-            log.warning(f"Primary model load failed: {e}. Retrying with fallback settings.")
-            self.mdl = AutoModel.from_pretrained(self.model_name, **hf_kwargs).to(self.device)
+            log.warning(
+                f"Primary model load failed: {e}. Retrying with fallback settings."
+            )
+            self.mdl = AutoModel.from_pretrained(self.model_name, **hf_kwargs).to(
+                self.device
+            )
         self.mdl.eval()
 
     def _encode_batch(self, batch_texts: List[str]) -> np.ndarray:
         """Tokenize and encode one batch, returning numpy array [B, D]."""
-        enc = self.tok(batch_texts, padding=True, truncation=True, max_length=self.max_length, return_tensors="pt")
+        enc = self.tok(
+            batch_texts,
+            padding=True,
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt",
+        )
         enc = {k: v.to(self.device) for k, v in enc.items()}
         with torch.no_grad():
             out = self.mdl(**enc)
@@ -118,12 +136,14 @@ class TransformersEmbeddingEncoder:
         out_parts = []
         bs = self.batch_size
         for i in tqdm(range(0, len(texts), bs), desc="Embedding"):
-            batch = texts[i:i + bs]
+            batch = texts[i : i + bs]
             try:
                 out_parts.append(self._encode_batch(batch))
             except RuntimeError as e:
                 # OOM or other runtime error: try a smaller batch size recursively
-                log.warning(f"RuntimeError while encoding batch size {len(batch)}: {e}. Retrying with smaller batch.")
+                log.warning(
+                    f"RuntimeError while encoding batch size {len(batch)}: {e}. Retrying with smaller batch."
+                )
                 if bs <= 1:
                     raise
                 # reduce batch (half) and reattempt encoding remaining items
@@ -132,13 +152,16 @@ class TransformersEmbeddingEncoder:
         return np.vstack(out_parts)
 
 
-
 QwenEmbeddingEncoder = TransformersEmbeddingEncoder
 
 
-def save_venue_embeddings(venue_features_df: pd.DataFrame, out_path: str,
-                          model: TransformersEmbeddingEncoder | None = None, batch_size: int | None = None,
-                          embedding_col: str = "embedding") -> pd.DataFrame:
+def save_venue_embeddings(
+    venue_features_df: pd.DataFrame,
+    out_path: str,
+    model: TransformersEmbeddingEncoder | None = None,
+    batch_size: int | None = None,
+    embedding_col: str = "embedding",
+) -> pd.DataFrame:
     """
     High-level helper:
      - Builds canonical texts from venue_features_df using canonical_text()
@@ -148,7 +171,9 @@ def save_venue_embeddings(venue_features_df: pd.DataFrame, out_path: str,
     Returns the DataFrame that was written.
     """
     encoder = model or TransformersEmbeddingEncoder(batch_size=batch_size)
-    log.info(f"Encoding {len(venue_features_df)} venues with model={encoder.model_name}")
+    log.info(
+        f"Encoding {len(venue_features_df)} venues with model={encoder.model_name}"
+    )
 
     # Build texts (order must match venue_id array)
     texts = venue_features_df.apply(canonical_text, axis=1).tolist()
@@ -158,7 +183,9 @@ def save_venue_embeddings(venue_features_df: pd.DataFrame, out_path: str,
 
     # Prepare output DataFrame with embedding column as list[float]
     emb_list = [row.tolist() for row in embs]
-    out_df = pd.DataFrame({"venue_id": venue_features_df["venue_id"].values, embedding_col: emb_list})
+    out_df = pd.DataFrame(
+        {"venue_id": venue_features_df["venue_id"].values, embedding_col: emb_list}
+    )
 
     # Save parquet (using src.io_utils.save_parquet to keep behaviour consistent)
     try:

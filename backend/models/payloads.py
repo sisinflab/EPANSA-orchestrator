@@ -14,31 +14,38 @@ from typing import Optional, Literal, Union
 from pydantic import BaseModel, Field, constr
 
 # Basic ISO-like constraints; intentionally permissive to avoid over-validation.
-ISOTime = constr(strip_whitespace=True, min_length=5)        # "HH:MM[:SS]"
-ISODateTime = constr(strip_whitespace=True, min_length=8)    # "YYYY-MM-DDTHH:MM[:SS[.fff]]"
+ISOTime = constr(strip_whitespace=True, min_length=5)  # "HH:MM[:SS]"
+ISODateTime = constr(
+    strip_whitespace=True, min_length=8
+)  # "YYYY-MM-DDTHH:MM[:SS[.fff]]"
 
 
 class DeletePayload(BaseModel):
     """Generic delete envelope used across entity types."""
+
     id: str
     source_app: str
-    metadata : Optional[dict] = None
+    metadata: Optional[dict] = None
+
 
 class NoteMetadata(BaseModel):
     """Normalized note metadata.
     - Timestamps are ISO strings passed through without normalization here.
     - titles are optional and should remain concise"""
+
     creation_date: str = None
     modified_date: str = None
     creation_time: Optional[ISOTime] = None
     modified_time: Optional[ISOTime] = None
     title: Optional[str] = None
 
+
 class NotePayloadLLM(BaseModel):
     """
     Note payload structure.
 
     """
+
     note: str
     metadata: Optional[NoteMetadata] = None
     content: str = None
@@ -54,6 +61,7 @@ class NotePayload(BaseModel):
     - `text` is required; titles are optional and should remain concise.
     - Timestamps are ISO strings passed through without normalization here.
     """
+
     note: str
     title: Optional[str] = None
     text: str
@@ -61,27 +69,35 @@ class NotePayload(BaseModel):
     date_modified: Optional[ISODateTime] = None
     source_app: Optional[str] = None
     kind: str = "note"
-    
-    
+
     def to_llm_payload(self) -> NotePayloadLLM:
         """Convert to LLM-focused payload structure."""
         metadata = NoteMetadata(
-            creation_date=self.date_created.split("T")[0] if self.date_created else None,
-            creation_time=self.date_created.split("T")[1] if self.date_created and "T" in self.date_created else None,
-            modified_date=self.date_modified.split("T")[0] if self.date_modified else None,
-            modified_time=self.date_modified.split("T")[1] if self.date_modified and "T" in self.date_modified else None,
-            title=self.title
+            creation_date=self.date_created.split("T")[0]
+            if self.date_created
+            else None,
+            creation_time=self.date_created.split("T")[1]
+            if self.date_created and "T" in self.date_created
+            else None,
+            modified_date=self.date_modified.split("T")[0]
+            if self.date_modified
+            else None,
+            modified_time=self.date_modified.split("T")[1]
+            if self.date_modified and "T" in self.date_modified
+            else None,
+            title=self.title,
         )
         return NotePayloadLLM(
             note=self.note,
             metadata=metadata,
             content=self.text,
-            source_app=self.source_app
+            source_app=self.source_app,
         )
 
 
 class ContactMetadata(BaseModel):
     """Contact metadata normalized for downstream processing."""
+
     name: str
     telephone_number: str
 
@@ -95,6 +111,7 @@ class ContactPayload(BaseModel):
     - Validates objects coming from `contact_*.txt` files.
     - Uses alias `contact` to bind the `id` field to on-disk key names.
     """
+
     contact: str = Field(..., alias="contact")
     source_app: str
     metadata: ContactMetadata
@@ -102,6 +119,7 @@ class ContactPayload(BaseModel):
 
 class SingleEventMetadata(BaseModel):
     """Metadata for a single-occurrence calendar event."""
+
     label: str
     date: str
     start_time: ISOTime
@@ -117,6 +135,7 @@ class RecurrentEventMetadata(BaseModel):
     - `repeat_frequency` carries the recurrence rule (RRULE string or similar).
     - `on` is a free-form descriptor (e.g., day names) aligned with upstream text.
     """
+
     label: str
     start_time: ISOTime
     end_time: ISOTime
@@ -133,6 +152,7 @@ class EventPayload(BaseModel):
     - Validates objects from `event_*.txt` files.
     - `recurrence_info` should be either "single-occurrence" or "recurrent".
     """
+
     event: str = Field(..., alias="event")
     source_app: str
     recurrence_info: str
@@ -141,6 +161,7 @@ class EventPayload(BaseModel):
 
 class PhoneCallMetadata(BaseModel):
     """Normalized phone call details."""
+
     date: str
     start_time: ISOTime
     end_time: ISOTime
@@ -157,26 +178,29 @@ class PhoneCallPayload(BaseModel):
     -------------
     - Validates objects coming from `phoneCall_*.txt` files.
     """
+
     call: str = Field(..., alias="call")
     source_app: str
     metadata: PhoneCallMetadata
 
 
-
-
 class SingleAlarmMetadata(BaseModel):
     """Alarm metadata for a one-time alarm."""
+
     label: str
-    date: str            # expected input like "YYYY-MM-DD" (will be rendered as "DD-MMM-YYYY")
-    time: ISOTime        # "HH:MM"
+    date: str  # expected input like "YYYY-MM-DD" (will be rendered as "DD-MMM-YYYY")
+    time: ISOTime  # "HH:MM"
 
 
 class RecurrentAlarmMetadata(BaseModel):
     """Alarm metadata for a recurring alarm."""
+
     label: str
     time: ISOTime
-    repeat_frequency: str   # "daily" | "weekly" | "monthly" | "yearly" (free text tolerated)
-    on: str                 # e.g., "MO,TU,WE" or "Monday, Tuesday", "15", "3 TU", "11-Sep", etc.
+    repeat_frequency: (
+        str  # "daily" | "weekly" | "monthly" | "yearly" (free text tolerated)
+    )
+    on: str  # e.g., "MO,TU,WE" or "Monday, Tuesday", "15", "3 TU", "11-Sep", etc.
 
 
 class AlarmPayload(BaseModel):
@@ -189,14 +213,30 @@ class AlarmPayload(BaseModel):
     - `to_natural_language_dict()` formats data into the textual structure
       expected by the downstream extractor (matches sample files exactly).
     """
+
     alarm: str = Field(..., alias="alarm")
     source_app: str
-    recurrence_type: Literal["single-occurrence", "recurrent"] = Field(..., alias="recurrence_type")
+    recurrence_type: Literal["single-occurrence", "recurrent"] = Field(
+        ..., alias="recurrence_type"
+    )
     metadata: Union[SingleAlarmMetadata, RecurrentAlarmMetadata]
 
     @staticmethod
     def _month_abbr(n: int) -> str:
-        return ["January","February","March","April","May","June","July","August","September","October","November","December"][n-1]
+        return [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ][n - 1]
 
     @staticmethod
     def _ordinal(n_str: str) -> str:
@@ -213,7 +253,15 @@ class AlarmPayload(BaseModel):
 
     @staticmethod
     def _weekday_map() -> dict:
-        return {"MO": "Monday","TU": "Tuesday","WE": "Wednesday","TH": "Thursday","FR": "Friday","SA": "Saturday","SU": "Sunday"}
+        return {
+            "MO": "Monday",
+            "TU": "Tuesday",
+            "WE": "Wednesday",
+            "TH": "Thursday",
+            "FR": "Friday",
+            "SA": "Saturday",
+            "SU": "Sunday",
+        }
 
     @classmethod
     def _normalize_on(cls, freq: str, on_val: str) -> str:
@@ -290,9 +338,17 @@ class AlarmPayload(BaseModel):
         is_recurrent = self.recurrence_type == "recurrent"
 
         if is_recurrent:
-            alarm_key = raw_id if raw_id.startswith("recurrentAlarm_") else f"recurrentAlarm_{raw_id.lstrip('alarm_')}"
+            alarm_key = (
+                raw_id
+                if raw_id.startswith("recurrentAlarm_")
+                else f"recurrentAlarm_{raw_id.lstrip('alarm_')}"
+            )
         else:
-            alarm_key = raw_id if raw_id.startswith("alarm_") else f"alarm_{raw_id.lstrip('recurrentAlarm_')}"
+            alarm_key = (
+                raw_id
+                if raw_id.startswith("alarm_")
+                else f"alarm_{raw_id.lstrip('recurrentAlarm_')}"
+            )
 
         meta_out = {"label": self.metadata.label}
 
@@ -317,7 +373,6 @@ class AlarmPayload(BaseModel):
             meta_out["date"] = out_date
             meta_out["time"] = getattr(self.metadata, "time", "") or ""
 
-
         return {
             "source_app": "alarm",
             "alarm": alarm_key,
@@ -326,22 +381,27 @@ class AlarmPayload(BaseModel):
         }
 
 
-
 class ChatPayload(BaseModel):
     """Plain text chat command/request."""
+
     text: str
-    
+
+
 class ChatResponse(BaseModel):
     """Response from chat command processing."""
+
     response: Optional[str] = None
     action: Optional[str] = None
     action_data: Optional[dict] = None
     error: Optional[str] = None
-    
+
+
 # --- Photos -------------------------------------------------------------------
+
 
 class PhotoMetadata(BaseModel):
     """Minimal photo metadata; binary path is provided at routing time if needed."""
+
     path: str
     creation_date: str
     creation_time: str
@@ -357,7 +417,7 @@ class PhotoPayload(BaseModel):
     - Validates objects coming from `photo_*.txt` files.
     - Binary image path (if any) is attached by the router layer.
     """
+
     photo: str = Field(..., alias="photo")
     source_app: str
     metadata: PhotoMetadata
-

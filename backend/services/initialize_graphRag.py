@@ -3,10 +3,12 @@ from neo4j import GraphDatabase
 import pandas as pd
 import os
 
-from backend.services.constants import (COMMUNITIES_QUERY,
-                                        ENTITIES_QUERY,
-                                        TEXT_UNIT_QUERY,
-                                        RELATIONSHIPS_QUERY)
+from backend.services.constants import (
+    COMMUNITIES_QUERY,
+    ENTITIES_QUERY,
+    TEXT_UNIT_QUERY,
+    RELATIONSHIPS_QUERY,
+)
 
 
 def run_df(driver, query, params=None):
@@ -17,11 +19,11 @@ def run_df(driver, query, params=None):
 
 
 def create_parquet(
-        uri: str = "bolt://localhost:7687",
-        userName: str = "neo4j",
-        password: str = "password",
-        database: str = "neo4j",
-        user_dir: str = None,
+    uri: str = "bolt://localhost:7687",
+    userName: str = "neo4j",
+    password: str = "password",
+    database: str = "neo4j",
+    user_dir: str = None,
 ):
     driver = GraphDatabase.driver(uri=uri, auth=(userName, password), database=database)
 
@@ -31,16 +33,24 @@ def create_parquet(
 
     try:
         entities_df = run_df(driver, ENTITIES_QUERY)
-        entities_df.to_parquet(f"{gRag_out_dir}/entities.parquet", index=False, engine="pyarrow")
+        entities_df.to_parquet(
+            f"{gRag_out_dir}/entities.parquet", index=False, engine="pyarrow"
+        )
 
         relationships_df = run_df(driver, RELATIONSHIPS_QUERY)
-        relationships_df.to_parquet(f"{gRag_out_dir}/relationships.parquet", index=False, engine="pyarrow")
+        relationships_df.to_parquet(
+            f"{gRag_out_dir}/relationships.parquet", index=False, engine="pyarrow"
+        )
 
         text_units_df = run_df(driver, TEXT_UNIT_QUERY)
-        text_units_df.to_parquet(f"{gRag_out_dir}/text_units.parquet", index=False, engine="pyarrow")
+        text_units_df.to_parquet(
+            f"{gRag_out_dir}/text_units.parquet", index=False, engine="pyarrow"
+        )
 
         communities_df = run_df(driver, COMMUNITIES_QUERY)
-        communities_df.to_parquet(f"{gRag_out_dir}/communities.parquet", index=False, engine="pyarrow")
+        communities_df.to_parquet(
+            f"{gRag_out_dir}/communities.parquet", index=False, engine="pyarrow"
+        )
 
     except Exception as e:
         raise e
@@ -89,7 +99,7 @@ def perform_indexing(user_dir: str, model_env_value: str, embedding_env_value: s
         subprocess.run(
             ["graphrag", "index", "--root", str(gRag_dir)],
             capture_output=True,
-            text=True
+            text=True,
         )
     except Exception as e:
         raise e

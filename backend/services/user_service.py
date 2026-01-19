@@ -1,7 +1,9 @@
 import logging
 from sqlalchemy.orm import Session
+
 # Import the User model from its new location
 from backend.services.secure_store import Base, SessionLocal, engine, User
+
 
 def create_user_table():
     """
@@ -23,7 +25,9 @@ class UserService:
     and avoid leaking ORM internals to callers.
     """
 
-    def get_or_create_user_by_google_id(self, google_id: str, email: str, name: str) -> User:
+    def get_or_create_user_by_google_id(
+        self, google_id: str, email: str, name: str
+    ) -> User:
         """
         Fetch an existing user by `google_id`; if not found, create a new one.
         ...

@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 # Centralized list of OAuth scopes used across Google integrations.
 # Keeping these aligned avoids scope mismatch between consent and runtime refresh.
 GOOGLE_OAUTH_SCOPES = [
-    'openid',
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/photoslibrary.readonly',
-    'https://www.googleapis.com/auth/calendar.readonly',
-    'https://www.googleapis.com/auth/contacts.readonly',
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/photoslibrary.readonly",
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/contacts.readonly",
 ]
 
 
@@ -44,13 +44,15 @@ async def exchange_code_and_get_profile(auth_code: str) -> tuple[Credentials, di
         A `(creds, profile)` pair with the authorized credentials and user information.
     """
     if not settings.GOOGLE_CLIENT_SECRETS_FILE:
-        raise HTTPException(status_code=500, detail="Google client secrets file not configured.")
+        raise HTTPException(
+            status_code=500, detail="Google client secrets file not configured."
+        )
 
     try:
         flow = Flow.from_client_secrets_file(
             settings.GOOGLE_CLIENT_SECRETS_FILE,
             scopes=GOOGLE_OAUTH_SCOPES,
-            redirect_uri=settings.GOOGLE_REDIRECT_URI
+            redirect_uri=settings.GOOGLE_REDIRECT_URI,
         )
         flow.fetch_token(code=auth_code)
     except Exception as e:
@@ -64,24 +66,27 @@ async def exchange_code_and_get_profile(auth_code: str) -> tuple[Credentials, di
             detail=(
                 "No refresh token received from Google. "
                 "Ensure the user has granted offline access."
-            )
+            ),
         )
 
     # Use the obtained credentials to query the OpenID Connect userinfo endpoint.
     try:
-        userinfo_endpoint = 'https://www.googleapis.com/oauth2/v3/userinfo'
-        headers = {'Authorization': f'Bearer {creds.token}'}
+        userinfo_endpoint = "https://www.googleapis.com/oauth2/v3/userinfo"
+        headers = {"Authorization": f"Bearer {creds.token}"}
         user_profile_response = requests.get(userinfo_endpoint, headers=headers)
         user_profile_response.raise_for_status()
         user_profile = user_profile_response.json()
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to retrieve Google user profile: {e}")
-        raise HTTPException(status_code=500, detail="Unable to retrieve user profile from Google.")
+        raise HTTPException(
+            status_code=500, detail="Unable to retrieve user profile from Google."
+        )
 
     return creds, user_profile
 
 
 # ----------------- Runtime credential retrieval & refresh ---------------------
+
 
 def get_credentials_for_user(user_id: str) -> Credentials:
     """

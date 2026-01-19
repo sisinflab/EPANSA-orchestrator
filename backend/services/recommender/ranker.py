@@ -7,7 +7,9 @@ from typing import Optional, Tuple, Union, Sequence
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def safe_distance_km(a: Optional[Sequence[float]], b: Optional[Sequence[float]]) -> Optional[float]:
+def safe_distance_km(
+    a: Optional[Sequence[float]], b: Optional[Sequence[float]]
+) -> Optional[float]:
     """Return distance in km or None if not computable, checking for valid coordinates."""
     # safeguard for missing/invalid coordinates
     if a is None or b is None:
@@ -53,14 +55,14 @@ def weekend_distance_weight(d: Optional[float]) -> float:
 
 
 def rank_pois_by_relevance(
-        candidate_pois_df: pd.DataFrame,
-        user_profile_vector: Union[np.ndarray, list],
-        user_location_coords: Optional[Tuple[float, float]] = None,
-        top_k: int = 5,
-        alpha_similarity: float = 0.7,
-        alpha_distance: float = 0.3,
-        use_mmr: bool = True,
-        lambda_param: float = 0.6
+    candidate_pois_df: pd.DataFrame,
+    user_profile_vector: Union[np.ndarray, list],
+    user_location_coords: Optional[Tuple[float, float]] = None,
+    top_k: int = 5,
+    alpha_similarity: float = 0.7,
+    alpha_distance: float = 0.3,
+    use_mmr: bool = True,
+    lambda_param: float = 0.6,
 ) -> pd.DataFrame:
     """
     Rank POIs. Can use a simple weighted score or MMR for diversity.
@@ -71,36 +73,43 @@ def rank_pois_by_relevance(
     df = candidate_pois_df.copy()
     user_vec = np.asarray(user_profile_vector, dtype=float)
 
-    if 'embedding' not in df.columns:
-        df['similarity_score'] = 0.0
+    if "embedding" not in df.columns:
+        df["similarity_score"] = 0.0
     else:
-        df['similarity_score'] = df['embedding'].apply(lambda e: cosine_sim(user_vec, e))
+        df["similarity_score"] = df["embedding"].apply(
+            lambda e: cosine_sim(user_vec, e)
+        )
 
-    if user_location_coords and 'latitude' in df.columns and 'longitude' in df.columns:
-        df['distance_km'] = df.apply(
-            lambda row: safe_distance_km(user_location_coords, (row.get('latitude'), row.get('longitude'))), axis=1)
-        df['distance_score'] = df['distance_km'].apply(weekend_distance_weight)
+    if user_location_coords and "latitude" in df.columns and "longitude" in df.columns:
+        df["distance_km"] = df.apply(
+            lambda row: safe_distance_km(
+                user_location_coords, (row.get("latitude"), row.get("longitude"))
+            ),
+            axis=1,
+        )
+        df["distance_score"] = df["distance_km"].apply(weekend_distance_weight)
     else:
-        df['distance_km'] = None
-        df['distance_score'] = 0.5
+        df["distance_km"] = None
+        df["distance_score"] = 0.5
 
-    df['final_score'] = alpha_similarity * df['similarity_score'].fillna(0.0) + alpha_distance * df[
-        'distance_score'].fillna(0.5)
+    df["final_score"] = alpha_similarity * df["similarity_score"].fillna(
+        0.0
+    ) + alpha_distance * df["distance_score"].fillna(0.5)
 
     # sort by final score descending
-    df = df.sort_values('final_score', ascending=False).reset_index(drop=True)
+    df = df.sort_values("final_score", ascending=False).reset_index(drop=True)
 
-    if not use_mmr or 'embedding' not in df.columns or len(df) <= top_k:
+    if not use_mmr or "embedding" not in df.columns or len(df) <= top_k:
         return df.head(top_k)
 
-    candidate_embeddings = np.stack(df['embedding'].values)
+    candidate_embeddings = np.stack(df["embedding"].values)
 
     # Normalize embeddings
     norms = np.linalg.norm(candidate_embeddings, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
     normalized_embeddings = candidate_embeddings / norms
 
-    relevance_scores = df['final_score'].values
+    relevance_scores = df["final_score"].values
 
     selected_indices = []
     candidate_indices = list(range(len(df)))
@@ -122,10 +131,14 @@ def rank_pois_by_relevance(
             candidate_emb = normalized_embeddings[idx].reshape(1, -1)
 
             # Similarity to selected set
-            similarity_to_selected = cosine_similarity(candidate_emb, selected_embs).max()
+            similarity_to_selected = cosine_similarity(
+                candidate_emb, selected_embs
+            ).max()
 
             # MMR
-            mmr_score = lambda_param * relevance - (1 - lambda_param) * similarity_to_selected
+            mmr_score = (
+                lambda_param * relevance - (1 - lambda_param) * similarity_to_selected
+            )
 
             if mmr_score > max_mmr_score:
                 max_mmr_score = mmr_score

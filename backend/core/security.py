@@ -43,7 +43,10 @@ def get_current_user(request: Request) -> Dict[str, Any]:
         raise e
     except Exception:
         # Maintain a uniform 401 on unexpected validation errors.
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing JWT token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing JWT token",
+        )
 
     user_id = ui.get("user_id") or ui.get("sub") or "anonymous"
     db_name = slug_db_name(user_id)

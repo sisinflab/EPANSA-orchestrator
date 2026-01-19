@@ -54,13 +54,12 @@ and then consumed by fsq_fetch.py.
 
 from __future__ import annotations
 import pandas as pd
-import numpy as np
-from typing import Iterable
 
 
 # ---------------------------------------------------------------------
 # Loaders
 # ---------------------------------------------------------------------
+
 
 def load_checkins(path: str) -> pd.DataFrame:
     """
@@ -110,35 +109,87 @@ def load_poi_table(path: str) -> pd.DataFrame:
 # We APPROVE POIs if their category matches ANY of these keywords.
 TOURISTIC_KEYWORDS = [
     # Culture / heritage / sightseeing
-    "museum", "art", "gallery", "historic", "history",
-    "monument", "landmark", "castle", "palace", "ruins",
-    "cathedral", "church", "basilica", "temple", "mosque", "synagogue",
-
+    "museum",
+    "art",
+    "gallery",
+    "historic",
+    "history",
+    "monument",
+    "landmark",
+    "castle",
+    "palace",
+    "ruins",
+    "cathedral",
+    "church",
+    "basilica",
+    "temple",
+    "mosque",
+    "synagogue",
     # Nature / outdoors / views
-    "park", "national park", "garden", "botanical",
-    "beach", "lake", "mountain", "forest", "scenic", "lookout", "viewpoint",
-    "plaza", "square", "waterfront", "pier",
-
+    "park",
+    "national park",
+    "garden",
+    "botanical",
+    "beach",
+    "lake",
+    "mountain",
+    "forest",
+    "scenic",
+    "lookout",
+    "viewpoint",
+    "plaza",
+    "square",
+    "waterfront",
+    "pier",
     # Food & drink (core part of travel recs)
-    "restaurant", "cafe", "coffee", "bar", "pub",
-    "bakery", "patisserie", "ice cream", "gelato", "winery", "brewery",
-    "food market", "market", "street food",
-
+    "restaurant",
+    "cafe",
+    "coffee",
+    "bar",
+    "pub",
+    "bakery",
+    "patisserie",
+    "ice cream",
+    "gelato",
+    "winery",
+    "brewery",
+    "food market",
+    "market",
+    "street food",
     # Entertainment / nightlife / leisure
-    "theater", "theatre", "cinema", "movie theater",
-    "concert hall", "music venue", "club", "nightclub",
-    "event space", "stadium", "arena",
-
+    "theater",
+    "theatre",
+    "cinema",
+    "movie theater",
+    "concert hall",
+    "music venue",
+    "club",
+    "nightclub",
+    "event space",
+    "stadium",
+    "arena",
     # Attractions / activities
-    "tourist attraction", "amusement park", "theme park",
-    "zoo", "aquarium",
-
+    "tourist attraction",
+    "amusement park",
+    "theme park",
+    "zoo",
+    "aquarium",
     # Shopping as experience (souvenirs, local crafts etc.)
-    "souvenir", "gift shop", "flea market", "antique", "bazaar",
-    "shopping mall", "shopping centre", "shopping center",
-
+    "souvenir",
+    "gift shop",
+    "flea market",
+    "antique",
+    "bazaar",
+    "shopping mall",
+    "shopping centre",
+    "shopping center",
     # Stay / hospitality (still part of tourist planning)
-    "hotel", "hostel", "resort", "bed & breakfast", "bed and breakfast", "bnb",
+    "hotel",
+    "hostel",
+    "resort",
+    "bed & breakfast",
+    "bed and breakfast",
+    "bnb",
 ]
 
 
@@ -169,6 +220,7 @@ def filter_touristic_pois(poi_df: pd.DataFrame) -> pd.DataFrame:
 # Popularity computation
 # ---------------------------------------------------------------------
 
+
 def compute_poi_popularity(checkins_df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute number of check-ins per venue.
@@ -177,9 +229,7 @@ def compute_poi_popularity(checkins_df: pd.DataFrame) -> pd.DataFrame:
         venue_id | checkin_count
     """
     popularity = (
-        checkins_df.groupby("venue_id")
-        .size()
-        .reset_index(name="checkin_count")
+        checkins_df.groupby("venue_id").size().reset_index(name="checkin_count")
     )
     return popularity
 
@@ -217,6 +267,7 @@ def keep_top_fraction_by_popularity(
 # ---------------------------------------------------------------------
 # High-level pipeline
 # ---------------------------------------------------------------------
+
 
 def build_filtered_poi_subset(
     checkins_path: str,

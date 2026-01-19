@@ -30,7 +30,9 @@ def _cosine_normalize(mat: np.ndarray) -> np.ndarray:
     return mat / norms
 
 
-def build_nn_index(emb_df: pd.DataFrame) -> tuple[NearestNeighbors, np.ndarray, np.ndarray]:
+def build_nn_index(
+    emb_df: pd.DataFrame,
+) -> tuple[NearestNeighbors, np.ndarray, np.ndarray]:
     """
     Build a brute-force NearestNeighbors index over venue embeddings.
 
@@ -54,9 +56,9 @@ def build_nn_index(emb_df: pd.DataFrame) -> tuple[NearestNeighbors, np.ndarray, 
     item_vecs = _cosine_normalize(item_vecs)
 
     nn = NearestNeighbors(
-        n_neighbors=50,        # default K to build index; you can override at query time
+        n_neighbors=50,  # default K to build index; you can override at query time
         algorithm="auto",
-        metric="cosine"
+        metric="cosine",
     )
     nn.fit(item_vecs)
 
@@ -102,8 +104,6 @@ def retrieve_similar(
 
     sims = 1.0 - distances  # cosine similarity
 
-    return pd.DataFrame({
-        "venue_id": venue_ids[idxs],
-        "distance": distances,
-        "score": sims
-    }).reset_index(drop=True)
+    return pd.DataFrame(
+        {"venue_id": venue_ids[idxs], "distance": distances, "score": sims}
+    ).reset_index(drop=True)

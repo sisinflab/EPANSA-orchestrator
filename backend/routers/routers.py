@@ -16,7 +16,6 @@ from backend.models.payloads import (
     NotePayload,
     NotePayloadLLM,
     ChatPayload,
-    ChatResponse,
     PhotoPayload,
     ContactPayload,
     DeletePayload,
@@ -51,7 +50,9 @@ def _write_json_txt(dirpath: Path, name: str, payload: dict) -> Path:
     return p
 
 
-async def _add_or_update_entity(p: BaseModel, request: Request, kind: str, operation: str):
+async def _add_or_update_entity(
+    p: BaseModel, request: Request, kind: str, operation: str
+):
     """
     Generic ingestion for text-based entities with special handling for alarms.
 
@@ -73,7 +74,9 @@ async def _add_or_update_entity(p: BaseModel, request: Request, kind: str, opera
         payload_dict = p.to_natural_language_dict()
         # Derive filename from recurrence and id
         alarm_key = payload_dict.get("alarm", "")
-        filename = f"{alarm_key}.txt" if alarm_key else f"alarm_{SAFE.sub('', p.alarm)}.txt"
+        filename = (
+            f"{alarm_key}.txt" if alarm_key else f"alarm_{SAFE.sub('', p.alarm)}.txt"
+        )
     else:
         payload_dict = p.model_dump(by_alias=True)
         safe_id = SAFE.sub("", p.id) if hasattr(p, "id") else "item"
@@ -96,7 +99,9 @@ async def _add_or_update_entity(p: BaseModel, request: Request, kind: str, opera
         return {"ok": False, "error": str(e)}
 
 
-async def _delete_entity(p: DeletePayload, request: Request, kind: str, embedding_model, embedding_dimension):
+async def _delete_entity(
+    p: DeletePayload, request: Request, kind: str, embedding_model, embedding_dimension
+):
     """
     Generic deletion with alarm-aware filename resolution.
 
@@ -110,7 +115,9 @@ async def _delete_entity(p: DeletePayload, request: Request, kind: str, embeddin
     if p.metadata and kind == "alarm":
         recurrence_type = p.metadata.get("recurrence_type", "")
         if not recurrence_type:
-            raise ValueError("Missing 'recurrence_type' in metadata for alarm deletion.")
+            raise ValueError(
+                "Missing 'recurrence_type' in metadata for alarm deletion."
+            )
 
     safe_id = SAFE.sub("", raw_id)
     fname = f"{kind}_{safe_id}.txt"
@@ -127,14 +134,18 @@ async def _delete_entity(p: DeletePayload, request: Request, kind: str, embeddin
         database=request.app.state.db_name,
         embedding_model=embedding_model,
         embedding_dimension=embedding_dimension,
-
     )
     return {"ok": True, "result": result}
 
 
 # Alarm
 @router.post("/add_alarm", status_code=201)
-async def add_alarm(p: AlarmPayload, request: Request, background_tasks: BackgroundTasks, _=Depends(jwt_dependency)):
+async def add_alarm(
+    p: AlarmPayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Insert a new alarm entry."""
     background_tasks.add_task(
         _add_or_update_entity,
@@ -143,11 +154,16 @@ async def add_alarm(p: AlarmPayload, request: Request, background_tasks: Backgro
         kind="alarm",
         operation="insert",
     )
-    return {"ok": True, "message": f"Alarm accepted. Processing in background."}
+    return {"ok": True, "message": "Alarm accepted. Processing in background."}
 
 
 @router.post("/update_alarm", status_code=201)
-async def update_alarm(p: AlarmPayload, request: Request, background_tasks: BackgroundTasks, _=Depends(jwt_dependency)):
+async def update_alarm(
+    p: AlarmPayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Update an existing alarm entry."""
     background_tasks.add_task(
         _add_or_update_entity,
@@ -156,12 +172,19 @@ async def update_alarm(p: AlarmPayload, request: Request, background_tasks: Back
         kind="alarm",
         operation="update",
     )
-    return {"ok": True, "message": f"Update in Alarm accepted. Processing in background."}
+    return {
+        "ok": True,
+        "message": "Update in Alarm accepted. Processing in background.",
+    }
 
 
 @router.post("/delete_alarm", status_code=201)
-async def delete_alarm(p: DeletePayload, request: Request, background_tasks: BackgroundTasks,
-                       _=Depends(jwt_dependency)):
+async def delete_alarm(
+    p: DeletePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Delete an alarm entry."""
     background_tasks.add_task(
         _delete_entity,
@@ -171,13 +194,17 @@ async def delete_alarm(p: DeletePayload, request: Request, background_tasks: Bac
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Deleted Alarm accepted. Processing in background."}
+    return {"ok": True, "message": "Deleted Alarm accepted. Processing in background."}
 
 
 # Phone Call
 @router.post("/add_telephone", status_code=201)
-async def add_telephone(p: PhoneCallPayload, request: Request, background_tasks: BackgroundTasks,
-                        _=Depends(jwt_dependency)):
+async def add_telephone(
+    p: PhoneCallPayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Insert a new phone call entry."""
     background_tasks.add_task(
         _add_or_update_entity,
@@ -186,12 +213,16 @@ async def add_telephone(p: PhoneCallPayload, request: Request, background_tasks:
         kind="phoneCall",
         operation="insert",
     )
-    return {"ok": True, "message": f"PhoneCall accepted. Processing in background."}
+    return {"ok": True, "message": "PhoneCall accepted. Processing in background."}
 
 
 @router.post("/delete_telephone", status_code=201)
-async def delete_telephone(p: DeletePayload, request: Request, background_tasks: BackgroundTasks,
-                           _=Depends(jwt_dependency)):
+async def delete_telephone(
+    p: DeletePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Delete a phone call entry."""
     background_tasks.add_task(
         _delete_entity,
@@ -201,18 +232,26 @@ async def delete_telephone(p: DeletePayload, request: Request, background_tasks:
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Deleted PhoneCall accepted. Processing in background."}
+    return {
+        "ok": True,
+        "message": "Deleted PhoneCall accepted. Processing in background.",
+    }
 
 
 # Note
 @router.post("/add_note", status_code=201)
-async def add_note(p: NotePayload, request: Request, background_tasks: BackgroundTasks, _=Depends(jwt_dependency)):
+async def add_note(
+    p: NotePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Insert a new note entry."""
     tmp = _user_tmp_dir(request)
     p: NotePayloadLLM = p.to_llm_payload()
-    
+
     payload_dict = p.model_dump(by_alias=True)
-    metadata_payload = p.model_dump(by_alias=True, exclude={'content'})
+    metadata_payload = p.model_dump(by_alias=True, exclude={"content"})
 
     safe_id = SAFE.sub("", p.note) if hasattr(p, "note") else "item"
     filename = f"note_{safe_id}.txt"
@@ -234,17 +273,22 @@ async def add_note(p: NotePayload, request: Request, background_tasks: Backgroun
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Note accepted. Processing in background."}
+    return {"ok": True, "message": "Note accepted. Processing in background."}
 
 
 @router.post("/update_note", status_code=201)
-async def update_note(p: NotePayload, request: Request, background_tasks: BackgroundTasks, _=Depends(jwt_dependency)):
+async def update_note(
+    p: NotePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Insert a new note entry."""
     tmp = _user_tmp_dir(request)
     p: NotePayloadLLM = p.to_llm_payload()
 
     payload_dict = p.model_dump(by_alias=True)
-    metadata_payload = p.model_dump(by_alias=True, exclude={'content'})
+    metadata_payload = p.model_dump(by_alias=True, exclude={"content"})
 
     safe_id = SAFE.sub("", p.id) if hasattr(p, "id") else "item"
     filename = f"note_{safe_id}.txt"
@@ -266,11 +310,16 @@ async def update_note(p: NotePayload, request: Request, background_tasks: Backgr
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Update in Note accepted. Processing in background."}
+    return {"ok": True, "message": "Update in Note accepted. Processing in background."}
 
 
 @router.post("/delete_note", status_code=201)
-async def delete_note(p: DeletePayload, request: Request, background_tasks: BackgroundTasks, _=Depends(jwt_dependency)):
+async def delete_note(
+    p: DeletePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Delete a note entry."""
     background_tasks.add_task(
         _delete_entity,
@@ -280,13 +329,17 @@ async def delete_note(p: DeletePayload, request: Request, background_tasks: Back
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Deleted Note accepted. Processing in background."}
+    return {"ok": True, "message": "Deleted Note accepted. Processing in background."}
 
 
 # Contacts
 @router.post("/add_contact", status_code=201)
-async def add_contact(p: ContactPayload, request: Request, background_tasks: BackgroundTasks,
-                      _=Depends(jwt_dependency)):
+async def add_contact(
+    p: ContactPayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Insert a new contact entry."""
     background_tasks.add_task(
         _add_or_update_entity,
@@ -295,12 +348,16 @@ async def add_contact(p: ContactPayload, request: Request, background_tasks: Bac
         kind="contact",
         operation="insert",
     )
-    return {"ok": True, "message": f"Contact accepted. Processing in background."}
+    return {"ok": True, "message": "Contact accepted. Processing in background."}
 
 
 @router.post("/update_contact", status_code=201)
-async def update_contact(p: ContactPayload, request: Request, background_tasks: BackgroundTasks,
-                         _=Depends(jwt_dependency)):
+async def update_contact(
+    p: ContactPayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Update an existing contact entry."""
     background_tasks.add_task(
         _add_or_update_entity,
@@ -309,12 +366,19 @@ async def update_contact(p: ContactPayload, request: Request, background_tasks: 
         kind="contact",
         operation="update",
     )
-    return {"ok": True, "message": f"Update in Contact accepted. Processing in background."}
+    return {
+        "ok": True,
+        "message": "Update in Contact accepted. Processing in background.",
+    }
 
 
 @router.post("/delete_contact", status_code=201)
-async def delete_contact(p: DeletePayload, request: Request, background_tasks: BackgroundTasks,
-                         _=Depends(jwt_dependency)):
+async def delete_contact(
+    p: DeletePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Delete a contact entry."""
     background_tasks.add_task(
         _delete_entity,
@@ -324,13 +388,22 @@ async def delete_contact(p: DeletePayload, request: Request, background_tasks: B
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Deleted Contact accepted. Processing in background."}
+    return {
+        "ok": True,
+        "message": "Deleted Contact accepted. Processing in background.",
+    }
 
 
 # Photo
 @router.post("/upload_photo", status_code=201)
-async def upload_photo(request: Request, background_tasks: BackgroundTasks, metadata: str = Form(...),
-                       photo: UploadFile = File(...), _=Depends(jwt_dependency), embedding_model=None):
+async def upload_photo(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    metadata: str = Form(...),
+    photo: UploadFile = File(...),
+    _=Depends(jwt_dependency),
+    embedding_model=None,
+):
     """
     Upload a new photo and process it in real time.
     """
@@ -363,7 +436,11 @@ async def upload_photo(request: Request, background_tasks: BackgroundTasks, meta
             embedding_model=request.app.state.embedding_model,
             embedding_dimension=request.app.state.embedding_dimension,
         )
-        return {"ok": True, "image_path": str(image_path), "message": f"Photo accepted. Processing in background."}
+        return {
+            "ok": True,
+            "image_path": str(image_path),
+            "message": "Photo accepted. Processing in background.",
+        }
 
     finally:
         try:
@@ -377,8 +454,12 @@ async def upload_photo(request: Request, background_tasks: BackgroundTasks, meta
 
 
 @router.post("/delete_photo", status_code=201)
-async def delete_photo(p: DeletePayload, request: Request, background_tasks: BackgroundTasks,
-                       _=Depends(jwt_dependency)):
+async def delete_photo(
+    p: DeletePayload,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _=Depends(jwt_dependency),
+):
     """Delete a photo entry."""
     background_tasks.add_task(
         _delete_entity,
@@ -388,12 +469,18 @@ async def delete_photo(p: DeletePayload, request: Request, background_tasks: Bac
         embedding_model=request.app.state.embedding_model,
         embedding_dimension=request.app.state.embedding_dimension,
     )
-    return {"ok": True, "message": f"Deleted Photo accepted. Processing in background."}
+    return {"ok": True, "message": "Deleted Photo accepted. Processing in background."}
 
 
 @router.post("/update_photo", status_code=201)
-async def update_photo(request: Request, background_tasks: BackgroundTasks, metadata: str = Form(...),
-                       photo: UploadFile = File(None), _=Depends(jwt_dependency), embedding_model=None):
+async def update_photo(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    metadata: str = Form(...),
+    photo: UploadFile = File(None),
+    _=Depends(jwt_dependency),
+    embedding_model=None,
+):
     """
     Update photo metadata and/or replace its binary content.
     """
@@ -451,11 +538,12 @@ async def handle_command(p: ChatPayload, request: Request, _=Depends(jwt_depende
         return {"ok": False, "error": "Invalid user identifier."}
 
     db_name = request.app.state.db_name
-    return await process_user_command(user_id=user_id_int,
-                                      db_name=db_name,
-                                      command_text=p.text,
-                                      embedding_model=request.app.state.embedding_model,
-                                      )
+    return await process_user_command(
+        user_id=user_id_int,
+        db_name=db_name,
+        command_text=p.text,
+        embedding_model=request.app.state.embedding_model,
+    )
 
 
 @router.post("/reset_chat", status_code=200)
@@ -470,4 +558,3 @@ async def reset_chat(request: Request, _=Depends(jwt_dependency)):
         return {"ok": False, "error": "Invalid user identifier."}
 
     return delete_history(user_id_int)
-

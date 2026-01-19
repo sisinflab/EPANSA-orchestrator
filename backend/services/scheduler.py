@@ -24,6 +24,7 @@ class FakeRequest:
         self.app.state.embedding_model = emb_model
         self.app.state.embedding_dimension = emb_dim
 
+
 def start_api_scheduler():
     global _scheduler
     if _scheduler:
@@ -33,10 +34,14 @@ def start_api_scheduler():
         try:
             user_ids = credentials_service.get_all_user_ids()
             if not user_ids:
-                logger.info("[SCHED] No users with credentials found. Skipping sync job.")
+                logger.info(
+                    "[SCHED] No users with credentials found. Skipping sync job."
+                )
                 return
 
-            logger.info(f"[SCHED] Running periodic Google sync for {len(user_ids)} users")
+            logger.info(
+                f"[SCHED] Running periodic Google sync for {len(user_ids)} users"
+            )
             for uid in user_ids:
                 try:
                     logger.info(f"[SCHED] Starting sync for user: {uid}")
@@ -44,16 +49,22 @@ def start_api_scheduler():
                     logger.info(f"[SCHED] Sync result for user {uid}: {result}")
                     logger.info(f"[SCHED] Sync completed for user: {uid}")
                 except Exception as user_sync_error:
-                    logger.error(f"[SCHED] Error during sync for user {uid}: {user_sync_error}", exc_info=True)
+                    logger.error(
+                        f"[SCHED] Error during sync for user {uid}: {user_sync_error}",
+                        exc_info=True,
+                    )
 
         except Exception as e:
             logger.exception(f"[SCHED] Sync job failed: {e}")
 
     _scheduler = BackgroundScheduler(timezone="UTC")
-    _scheduler.add_job(job, "interval", seconds=100, id="periodic_google_sync", replace_existing=True)
+    _scheduler.add_job(
+        job, "interval", seconds=100, id="periodic_google_sync", replace_existing=True
+    )
     _scheduler.start()
     logger.info("[SCHED] BackgroundScheduler started (every 10m)")
     return _scheduler
+
 
 def stop_api_scheduler():
     global _scheduler

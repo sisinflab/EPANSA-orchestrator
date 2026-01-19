@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+
 def load_json(p: Path, default):
     """
     Load a JSON file from disk and return its contents.
@@ -27,6 +28,7 @@ def load_json(p: Path, default):
         logger.warning(f"Unexpected error loading JSON from {p}: {e}")
         return default
 
+
 def save_json(p: Path, data):
     """
     Persist a Python object as pretty-printed JSON to disk.
@@ -38,6 +40,7 @@ def save_json(p: Path, data):
     """
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 def iso_to_date_time(iso_str: Optional[str]) -> Tuple[str, str]:
     """
@@ -59,7 +62,9 @@ def iso_to_date_time(iso_str: Optional[str]) -> Tuple[str, str]:
     if not iso_str:
         return "", ""
     try:
-        dt = datetime.fromisoformat(iso_str.replace('Z', '+00:00')).astimezone(timezone.utc)
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00")).astimezone(
+            timezone.utc
+        )
         return dt.strftime("%d-%b-%Y"), dt.strftime("%H:%M")
     except (ValueError, TypeError):
         logger.warning(f"Could not parse ISO date string: {iso_str}")

@@ -1,5 +1,7 @@
 from __future__ import annotations
-import json, re, logging
+import json
+import re
+import logging
 from pathlib import Path
 from typing import Any, Dict
 from fastapi import Request
@@ -23,8 +25,8 @@ BASE_TMP_DIR = Path(settings.TMP_DIR)
 SYNC_DIR = Path(settings.SYNC_DIR)
 
 # Filename/path sanitizers to avoid unsafe characters on local FS.
-SAFE_NAME = re.compile(r'[^-\w.\s]')
-SAFE_ID = re.compile(r'[^A-Za-z0-9_-]')
+SAFE_NAME = re.compile(r"[^-\w.\s]")
+SAFE_ID = re.compile(r"[^A-Za-z0-9_-]")
 
 # Google Docs/Slides MIME types that must be exported to PDF before processing.
 EXPORT_TO_PDF = {
@@ -50,14 +52,14 @@ def _write_meta_txt(user_dir: Path, name: str, payload: dict) -> Path:
 
 
 async def process_document(
-        download_req,
-        unstruct_path: Path,
-        meta_payload: Dict[str, Any],
-        txt_filename: str,
-        operation: str,
-        user_dir: Path,
-        db_name: str,
-        results: Dict[str, Any],
+    download_req,
+    unstruct_path: Path,
+    meta_payload: Dict[str, Any],
+    txt_filename: str,
+    operation: str,
+    user_dir: Path,
+    db_name: str,
+    results: Dict[str, Any],
 ) -> bool:
     """
     Download (or export) the file, write metadata .txt, then extract triples
@@ -83,7 +85,9 @@ async def process_document(
         return True
     except Exception as e:
         fid = meta_payload.get("id", "unknown")
-        logger.warning(f"[DRIVE] Processing failed for file_id={fid}: {e}", exc_info=True)
+        logger.warning(
+            f"[DRIVE] Processing failed for file_id={fid}: {e}", exc_info=True
+        )
         results["errors"].append(str(e))
         return False
 
@@ -96,7 +100,9 @@ def get_full_drive_path(svc, file_id):
     current_id = file_id
     try:
         while True:
-            file = svc.files().get(fileId=current_id, fields="id, name, parents").execute()
+            file = (
+                svc.files().get(fileId=current_id, fields="id, name, parents").execute()
+            )
             parts.insert(0, file["name"])
             parents = file.get("parents")
             if not parents:
@@ -109,13 +115,13 @@ def get_full_drive_path(svc, file_id):
 
 
 async def handle_file(
-        svc,
-        f: Dict[str, Any],
-        operation: str,
-        user_dir: Path,
-        processed_versions: Dict[str, Any],
-        results: Dict[str, Any],
-        db_name: str,
+    svc,
+    f: Dict[str, Any],
+    operation: str,
+    user_dir: Path,
+    processed_versions: Dict[str, Any],
+    results: Dict[str, Any],
+    db_name: str,
 ) -> None:
     """
     Process a single Drive file (PDF or Google Doc/Slides exported to PDF)
@@ -148,7 +154,7 @@ async def handle_file(
             "creation_time": creation_time,
             "modified_date": modified_date,
             "modified_time": modified_time,
-        }
+        },
     }
 
     json_filename = f"doc_{SAFE_ID.sub('', fid)}.txt"
@@ -156,19 +162,26 @@ async def handle_file(
 
     if is_pdf:
         req = svc.files().get_media(fileId=fid)
-        success = await process_document(req, local_path, meta, json_filename, operation, user_dir, db_name, results)
+        success = await process_document(
+            req, local_path, meta, json_filename, operation, user_dir, db_name, results
+        )
     elif is_gdoc_pdf:
         req = svc.files().export_media(fileId=fid, mimeType="application/pdf")
         pdf_path = local_path.with_suffix(".pdf")
-        success = await process_document(req, pdf_path, meta, json_filename, operation, user_dir, db_name, results)
+        success = await process_document(
+            req, pdf_path, meta, json_filename, operation, user_dir, db_name, results
+        )
 
     if success:
         processed_versions[fid] = f.get("version")
         results["processed"] += 1
 
 
-async def drive_ingest_new(request: "Request", max_ops: int = 200, backfill: bool = False, ) -> Dict[str, Any]:
-
+async def drive_ingest_new(
+    request: "Request",
+    max_ops: int = 200,
+    backfill: bool = False,
+) -> Dict[str, Any]:
     uid = request.app.state.user_info.get("sub")
     user_slug = slug_db_name(uid)
 
@@ -178,7 +191,12 @@ async def drive_ingest_new(request: "Request", max_ops: int = 200, backfill: boo
     user_sync_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        svc = build("drive", "v3", credentials=google_auth_service.get_credentials_for_user(uid), cache_discovery=False)
+        svc = build(
+            "drive",
+            "v3",
+            credentials=google_auth_service.get_credentials_for_user(uid),
+            cache_discovery=False,
+        )
     except Exception as e:
         logger.error(f"Drive auth failed for user {uid}: {e}", exc_info=True)
         return {"error": f"Drive auth failed: {e}"}
@@ -188,11 +206,17 @@ async def drive_ingest_new(request: "Request", max_ops: int = 200, backfill: boo
     state = load_json(state_p, {})
     processed_versions = load_json(proc_p, {})
 
-    results: Dict[str, Any] = {"mode": "", "processed": 0, "deleted": 0, "skipped": 0, "errors": []}
+    results: Dict[str, Any] = {
+        "mode": "",
+        "processed": 0,
+        "deleted": 0,
+        "skipped": 0,
+        "errors": [],
+    }
 
     # No token + no backfill -> initialize token and exit
     if not state.get("startPageToken") and not backfill:
-        logger.info(f"[DRIVE] No token and backfill disabled. Initializing token.")
+        logger.info("[DRIVE] No token and backfill disabled. Initializing token.")
         try:
             tok = svc.changes().getStartPageToken().execute()
             state["startPageToken"] = tok.get("startPageToken")
@@ -201,39 +225,59 @@ async def drive_ingest_new(request: "Request", max_ops: int = 200, backfill: boo
             logger.info(f"[DRIVE] Sync finished for user {uid}. Results: {results}")
             return results
         except Exception as e:
-            logger.error(f"[DRIVE] Failed to initialize startPageToken: {e}", exc_info=True)
+            logger.error(
+                f"[DRIVE] Failed to initialize startPageToken: {e}", exc_info=True
+            )
             return {"error": str(e)}
 
     perform_backfill = backfill or not state.get("startPageToken")
 
     if perform_backfill:
-        results["mode"] = "initial" if not state.get("startPageToken") else "backfill_forced"
+        results["mode"] = (
+            "initial" if not state.get("startPageToken") else "backfill_forced"
+        )
         logger.info(f"[DRIVE] Running {results['mode']} sync for user {uid}")
 
         if backfill:
-            logger.info(f"[DRIVE] Backfill forced. Clearing processed versions cache.")
+            logger.info("[DRIVE] Backfill forced. Clearing processed versions cache.")
             processed_versions = {}
 
         page_token = None
         ops = 0
         try:
             while ops < max_ops:
-                resp = svc.files().list(
-                    q=("trashed=false and (mimeType='application/pdf' or mimeType contains 'vnd.google-apps.document')"),
-                    pageSize=min(100, max_ops - ops),
-                    fields="nextPageToken, files(id,name,mimeType,version,createdTime,modifiedTime)",
-                    pageToken=page_token,
-                ).execute()
+                resp = (
+                    svc.files()
+                    .list(
+                        q=(
+                            "trashed=false and (mimeType='application/pdf' or mimeType contains 'vnd.google-apps.document')"
+                        ),
+                        pageSize=min(100, max_ops - ops),
+                        fields="nextPageToken, files(id,name,mimeType,version,createdTime,modifiedTime)",
+                        pageToken=page_token,
+                    )
+                    .execute()
+                )
 
                 for f in resp.get("files", []):
-                    if ops >= max_ops: break
+                    if ops >= max_ops:
+                        break
                     # Decide operation from presence in processed_versions
                     op = "insert" if f["id"] not in processed_versions else "update"
-                    await handle_file(svc, f, op, user_tmp_dir, processed_versions, results, request.app.state.db_name)
+                    await handle_file(
+                        svc,
+                        f,
+                        op,
+                        user_tmp_dir,
+                        processed_versions,
+                        results,
+                        request.app.state.db_name,
+                    )
                     ops += 1
 
                 page_token = resp.get("nextPageToken")
-                if not page_token: break
+                if not page_token:
+                    break
 
             tok = svc.changes().getStartPageToken().execute()
             state["startPageToken"] = tok.get("startPageToken")
@@ -249,17 +293,22 @@ async def drive_ingest_new(request: "Request", max_ops: int = 200, backfill: boo
         ops = 0
         try:
             while page_token and ops < max_ops:
-                resp = svc.changes().list(
-                    pageToken=page_token,
-                    fields="nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,version,createdTime,modifiedTime))",
-                ).execute()
+                resp = (
+                    svc.changes()
+                    .list(
+                        pageToken=page_token,
+                        fields="nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,version,createdTime,modifiedTime))",
+                    )
+                    .execute()
+                )
 
                 for ch in resp.get("changes", []):
-                    if ops >= max_ops: break
+                    if ops >= max_ops:
+                        break
                     fid = ch.get("fileId")
 
                     if ch.get("removed"):
-                        safe_fid = SAFE_ID.sub('', fid)
+                        safe_fid = SAFE_ID.sub("", fid)
                         fileName = f"doc_{safe_fid}.txt"
                         await delete_kg_triples(
                             fileName=fileName,
@@ -280,7 +329,15 @@ async def drive_ingest_new(request: "Request", max_ops: int = 200, backfill: boo
                         continue
 
                     op = "insert" if fid not in processed_versions else "update"
-                    await handle_file(svc, f, op, user_tmp_dir, processed_versions, results, request.app.state.db_name)
+                    await handle_file(
+                        svc,
+                        f,
+                        op,
+                        user_tmp_dir,
+                        processed_versions,
+                        results,
+                        request.app.state.db_name,
+                    )
                     ops += 1
 
                 page_token = resp.get("nextPageToken")

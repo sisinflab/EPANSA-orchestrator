@@ -1,5 +1,7 @@
 from __future__ import annotations
-import json, re, logging
+import json
+import re
+import logging
 from pathlib import Path
 from typing import Any, Dict
 from fastapi import Request
@@ -22,8 +24,8 @@ logger = logging.getLogger(__name__)
 BASE_TMP_DIR = Path(settings.TMP_DIR)
 SYNC_DIR = Path(settings.SYNC_DIR)
 
-SAFE_ID = re.compile(r'[^A-Za-z0-9_-]')
-SAFE_NAME = re.compile(r'[^-\w.\s]')
+SAFE_ID = re.compile(r"[^A-Za-z0-9_-]")
+SAFE_NAME = re.compile(r"[^-\w.\s]")
 
 
 def _download_media(req, target_path: Path) -> str:
@@ -44,14 +46,14 @@ def _write_meta_txt(user_dir: Path, filename: str, payload: dict) -> Path:
 
 
 async def process_photo(
-        download_req,
-        image_path: Path,
-        meta_payload: Dict[str, Any],
-        txt_filename: str,
-        user_dir: Path,
-        db_name: str,
-        operation: str,
-        results: Dict[str, Any],
+    download_req,
+    image_path: Path,
+    meta_payload: Dict[str, Any],
+    txt_filename: str,
+    user_dir: Path,
+    db_name: str,
+    operation: str,
+    results: Dict[str, Any],
 ) -> bool:
     """
     Download the image, enrich metadata (location), run extraction with the chosen operation.
@@ -81,7 +83,9 @@ async def process_photo(
         return True
     except Exception as e:
         fid = meta_payload.get("id", "unknown")
-        logger.warning(f"[PHOTOS] Processing failed for file_id={fid}: {e}", exc_info=True)
+        logger.warning(
+            f"[PHOTOS] Processing failed for file_id={fid}: {e}", exc_info=True
+        )
         results["errors"].append(str(e))
         return False
 
@@ -95,7 +99,9 @@ def get_full_drive_path(svc, file_id):
     current_id = file_id
     try:
         while True:
-            file = svc.files().get(fileId=current_id, fields="id, name, parents").execute()
+            file = (
+                svc.files().get(fileId=current_id, fields="id, name, parents").execute()
+            )
             parts.insert(0, file["name"])
             parents = file.get("parents")
             if not parents:
@@ -108,13 +114,13 @@ def get_full_drive_path(svc, file_id):
 
 
 async def handle_image(
-        svc,
-        f: Dict[str, Any],
-        operation: str,
-        user_dir: Path,
-        processed_versions: Dict[str, Any],
-        results: Dict[str, Any],
-        db_name: str,
+    svc,
+    f: Dict[str, Any],
+    operation: str,
+    user_dir: Path,
+    processed_versions: Dict[str, Any],
+    results: Dict[str, Any],
+    db_name: str,
 ) -> None:
     """
     Prepare metadata and run extraction for a single image using the chosen operation.
@@ -150,15 +156,20 @@ async def handle_image(
     txt_filename = f"photo_{SAFE_ID.sub('', fid)}.txt"
     req = svc.files().get_media(fileId=fid)
 
-    success = await process_photo(req, image_path, meta, txt_filename, user_dir, db_name, operation, results)
+    success = await process_photo(
+        req, image_path, meta, txt_filename, user_dir, db_name, operation, results
+    )
 
     if success:
         processed_versions[fid] = f.get("version")
         results["processed"] += 1
 
 
-async def photos_ingest_new(request: "Request", max_ops: int = 200, backfill: bool = False, ) -> Dict[str, Any]:
-
+async def photos_ingest_new(
+    request: "Request",
+    max_ops: int = 200,
+    backfill: bool = False,
+) -> Dict[str, Any]:
     uid = request.app.state.user_info.get("sub")
     user_slug = slug_db_name(uid)
 
@@ -168,7 +179,12 @@ async def photos_ingest_new(request: "Request", max_ops: int = 200, backfill: bo
     user_sync_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        svc = build("drive", "v3", credentials=google_auth_service.get_credentials_for_user(uid), cache_discovery=False)
+        svc = build(
+            "drive",
+            "v3",
+            credentials=google_auth_service.get_credentials_for_user(uid),
+            cache_discovery=False,
+        )
     except Exception as e:
         logger.error(f"Photos/Drive auth failed for user {uid}: {e}", exc_info=True)
         return {"error": f"Auth failed: {e}"}
@@ -178,51 +194,77 @@ async def photos_ingest_new(request: "Request", max_ops: int = 200, backfill: bo
     state = load_json(state_p, {})
     processed_versions = load_json(proc_p, {})
 
-    results: Dict[str, Any] = {"mode": "", "processed": 0, "deleted": 0, "skipped": 0, "errors": []}
+    results: Dict[str, Any] = {
+        "mode": "",
+        "processed": 0,
+        "deleted": 0,
+        "skipped": 0,
+        "errors": [],
+    }
 
     # No token + no backfill -> initialize token only
     if not state.get("startPageToken") and not backfill:
-        logger.info(f"[DRIVE-PHOTO] No token and backfill disabled. Initializing token.")
+        logger.info("[DRIVE-PHOTO] No token and backfill disabled. Initializing token.")
         try:
             tok = svc.changes().getStartPageToken().execute()
             state["startPageToken"] = tok.get("startPageToken")
             save_json(state_p, state)
             results["mode"] = "initialized"
-            logger.info(f"[DRIVE-PHOTO] Sync finished for user {uid}. Results: {results}")
+            logger.info(
+                f"[DRIVE-PHOTO] Sync finished for user {uid}. Results: {results}"
+            )
             return results
         except Exception as e:
-            logger.error(f"[DRIVE-PHOTO] Failed to initialize startPageToken: {e}", exc_info=True)
+            logger.error(
+                f"[DRIVE-PHOTO] Failed to initialize startPageToken: {e}", exc_info=True
+            )
             return {"error": str(e)}
 
     perform_backfill = backfill or not state.get("startPageToken")
 
     if perform_backfill:
-        results["mode"] = "initial" if not state.get("startPageToken") else "backfill_forced"
+        results["mode"] = (
+            "initial" if not state.get("startPageToken") else "backfill_forced"
+        )
         logger.info(f"[PHOTOS] Running {results['mode']} sync for user {uid}")
 
         if backfill:
-            logger.info(f"[PHOTOS] Backfill forced. Clearing processed versions cache.")
+            logger.info("[PHOTOS] Backfill forced. Clearing processed versions cache.")
             processed_versions = {}
 
         page, ops = None, 0
         try:
             while ops < max_ops:
-                resp = svc.files().list(
-                    q="mimeType contains 'image/' and trashed=false",
-                    pageSize=min(100, max_ops - ops),
-                    fields="nextPageToken, files(id,name,mimeType,version,createdTime,modifiedTime)",
-                    pageToken=page,
-                ).execute()
+                resp = (
+                    svc.files()
+                    .list(
+                        q="mimeType contains 'image/' and trashed=false",
+                        pageSize=min(100, max_ops - ops),
+                        fields="nextPageToken, files(id,name,mimeType,version,createdTime,modifiedTime)",
+                        pageToken=page,
+                    )
+                    .execute()
+                )
 
                 for f in resp.get("files", []):
-                    if ops >= max_ops: break
+                    if ops >= max_ops:
+                        break
                     # Decide op from processed_versions even during backfill
                     op = "insert" if f["id"] not in processed_versions else "update"
-                    await handle_image(svc, f, op, user_tmp_dir, processed_versions, results, request.app.state.db_name)
+                    await handle_image(
+                        svc,
+                        f,
+                        op,
+                        user_tmp_dir,
+                        processed_versions,
+                        results,
+                        request.app.state.db_name,
+                    )
                     ops += 1
 
                 page = resp.get("nextPageToken")
-                if not page: break
+                if not page:
+                    break
 
             tok = svc.changes().getStartPageToken().execute()
             state["startPageToken"] = tok.get("startPageToken")
@@ -238,22 +280,30 @@ async def photos_ingest_new(request: "Request", max_ops: int = 200, backfill: bo
         ops = 0
         try:
             while page and ops < max_ops:
-                resp = svc.changes().list(
-                    pageToken=page,
-                    fields="nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,version,createdTime,modifiedTime))",
-                ).execute()
+                resp = (
+                    svc.changes()
+                    .list(
+                        pageToken=page,
+                        fields="nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,version,createdTime,modifiedTime))",
+                    )
+                    .execute()
+                )
 
                 for ch in resp.get("changes", []):
-                    if ops >= max_ops: break
+                    if ops >= max_ops:
+                        break
                     fid = ch.get("fileId")
 
                     if ch.get("removed"):
-                        await delete_kg_triples(fileName=f"photo_{SAFE_ID.sub('', fid)}.txt",
-                                                database=request.app.state.db_name,
-                                                embedding_model=request.app.state.embedding_model,
-                                                embedding_dimension=request.app.state.embedding_dimension,
-                                                )
-                        processed_versions.pop(fid, None)  # keep cache in sync with deletions
+                        await delete_kg_triples(
+                            fileName=f"photo_{SAFE_ID.sub('', fid)}.txt",
+                            database=request.app.state.db_name,
+                            embedding_model=request.app.state.embedding_model,
+                            embedding_dimension=request.app.state.embedding_dimension,
+                        )
+                        processed_versions.pop(
+                            fid, None
+                        )  # keep cache in sync with deletions
                         results["deleted"] += 1
                         ops += 1
                         continue
@@ -269,7 +319,15 @@ async def photos_ingest_new(request: "Request", max_ops: int = 200, backfill: bo
                         continue
 
                     op = "insert" if fid not in processed_versions else "update"
-                    await handle_image(svc, f, op, user_tmp_dir, processed_versions, results, request.app.state.db_name)
+                    await handle_image(
+                        svc,
+                        f,
+                        op,
+                        user_tmp_dir,
+                        processed_versions,
+                        results,
+                        request.app.state.db_name,
+                    )
                     ops += 1
 
                 page = resp.get("nextPageToken")
@@ -278,7 +336,9 @@ async def photos_ingest_new(request: "Request", max_ops: int = 200, backfill: bo
 
         except HttpError as e:
             if getattr(e, "resp", None) and e.resp.status in (400, 410):
-                logger.warning(f"[PHOTOS] Invalid sync token for user {uid}. Resetting.")
+                logger.warning(
+                    f"[PHOTOS] Invalid sync token for user {uid}. Resetting."
+                )
                 state.pop("startPageToken", None)
             logger.error(f"[PHOTOS] HttpError during incremental sync: {e}")
             results["errors"].append(str(e))

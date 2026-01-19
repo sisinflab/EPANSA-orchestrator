@@ -9,11 +9,11 @@ This module:
    The canonical text is what we encode to produce venue embeddings.
 """
 
-import json
 from typing import Any, Dict
 import pandas as pd
 
 from .io_utils import log, read_jsonl, save_parquet
+
 
 # ---------------------------------------------------------------------
 # Helpers

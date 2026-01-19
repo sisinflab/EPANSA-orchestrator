@@ -17,7 +17,6 @@ from backend.core.config import settings
 from backend.services.google_utils import load_json, save_json
 from backend.services.pkg_population import extract_kg_triples, delete_kg_triples
 
-from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
 
 logger = logging.getLogger(__name__)
 
@@ -28,15 +27,30 @@ SAFE = re.compile(r"[^A-Za-z0-9_-]")
 # -------------------------- Helpers (formatting) --------------------------
 
 DAY_MAP = {
-    "MO": "monday", "TU": "tuesday", "WE": "wednesday",
-    "TH": "thursday", "FR": "friday", "SA": "saturday", "SU": "sunday"
+    "MO": "monday",
+    "TU": "tuesday",
+    "WE": "wednesday",
+    "TH": "thursday",
+    "FR": "friday",
+    "SA": "saturday",
+    "SU": "sunday",
 }
 
 MONTH_MAP = {
-    "1": "january", "2": "february", "3": "march", "4": "april",
-    "5": "may", "6": "june", "7": "july", "8": "august",
-    "9": "september", "10": "october", "11": "november", "12": "december"
+    "1": "january",
+    "2": "february",
+    "3": "march",
+    "4": "april",
+    "5": "may",
+    "6": "june",
+    "7": "july",
+    "8": "august",
+    "9": "september",
+    "10": "october",
+    "11": "november",
+    "12": "december",
 }
+
 
 def _format_monthday(value: str) -> str:
     """
@@ -62,6 +76,7 @@ def _format_monthday(value: str) -> str:
             suffix = "rd"
     return f"{n}{suffix} day"
 
+
 def _ordinal(n: int) -> str:
     """
     1 -> '1st', 2 -> '2nd', 3 -> '3rd', 4 -> '4th', -1 -> 'last'
@@ -72,10 +87,14 @@ def _ordinal(n: int) -> str:
     if 10 <= (n % 100) <= 20:
         suffix = "th"
     else:
-        if n % 10 == 1: suffix = "st"
-        elif n % 10 == 2: suffix = "nd"
-        elif n % 10 == 3: suffix = "rd"
+        if n % 10 == 1:
+            suffix = "st"
+        elif n % 10 == 2:
+            suffix = "nd"
+        elif n % 10 == 3:
+            suffix = "rd"
     return f"{n}{suffix}"
+
 
 def _expand_byday(byday_raw: str) -> str:
     """
@@ -106,6 +125,7 @@ def _expand_byday(byday_raw: str) -> str:
             out.append(day_name)
     return ", ".join(out)
 
+
 def _fmt_date_iso_to_dd_mmm_yyyy(date_iso: str) -> str:
     """
     Convert YYYY-MM-DD into 'DD Mon YYYY' (e.g., '2025-10-16' -> '16 Oct 2025').
@@ -118,6 +138,7 @@ def _fmt_date_iso_to_dd_mmm_yyyy(date_iso: str) -> str:
         return dt.strftime("%d %b %Y")
     except Exception:
         return ""
+
 
 def _hhmm(date_time_iso: Optional[str]) -> str:
     """
@@ -132,11 +153,17 @@ def _hhmm(date_time_iso: Optional[str]) -> str:
     except Exception:
         return ""
 
+
 def _parse_rrule_first_line(rrule_line: str) -> tuple[str, str]:
     """
     Parse a minimal subset of RRULE to a simplified (repeat_frequency, on_text) pair.
     """
-    freq_map = {"DAILY": "daily", "WEEKLY": "weekly", "MONTHLY": "monthly", "YEARLY": "yearly"}
+    freq_map = {
+        "DAILY": "daily",
+        "WEEKLY": "weekly",
+        "MONTHLY": "monthly",
+        "YEARLY": "yearly",
+    }
 
     freq = ""
     on_text = ""
@@ -166,7 +193,9 @@ def _parse_rrule_first_line(rrule_line: str) -> tuple[str, str]:
 
     return freq, on_text
 
+
 # -------------------------- Main sync function --------------------------
+
 
 async def calendar_sync(
     request: Request,
@@ -213,14 +242,23 @@ async def calendar_sync(
         logger.error(f"Calendar auth failed for user {uid}: {e}", exc_info=True)
         return {"error": f"Failed to auth Calendar API: {e}", "ok": False}
 
-    results: Dict[str, Any] = {"ok": True, "mode": "", "upserts": 0, "deletes": 0, "skipped": 0, "errors": []}
+    results: Dict[str, Any] = {
+        "ok": True,
+        "mode": "",
+        "upserts": 0,
+        "deletes": 0,
+        "skipped": 0,
+        "errors": [],
+    }
 
     # Determine if we should do token-only initialization
     perform_backfill = backfill or not state.get("syncToken")
 
     # --------------------- Initialization-only branch ---------------------
     if not state.get("syncToken") and not backfill:
-        logger.info("[CAL] No sync token and backfill disabled. Initializing token for future incremental syncs.")
+        logger.info(
+            "[CAL] No sync token and backfill disabled. Initializing token for future incremental syncs."
+        )
         try:
             init_params: Dict[str, Any] = {
                 "calendarId": "primary",
@@ -299,7 +337,9 @@ async def calendar_sync(
                         processed.pop(safe_id, None)  # keep the local index clean
                         deletes.append(eid)
                     except Exception as ex:
-                        logger.warning(f"[CAL] delete failed for {eid}: {ex}", exc_info=True)
+                        logger.warning(
+                            f"[CAL] delete failed for {eid}: {ex}", exc_info=True
+                        )
                         errors.append(str(ex))
                     continue
 
@@ -319,7 +359,9 @@ async def calendar_sync(
                     end = e.get("end", {}) or {}
 
                     start_date_iso = start.get("date") or (
-                        start.get("dateTime", "").split("T")[0] if start.get("dateTime") else ""
+                        start.get("dateTime", "").split("T")[0]
+                        if start.get("dateTime")
+                        else ""
                     )
                     start_time = _hhmm(start.get("dateTime"))
                     end_time = _hhmm(end.get("dateTime"))
@@ -352,7 +394,10 @@ async def calendar_sync(
                             },
                         }
 
-                    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                    json_path.write_text(
+                        json.dumps(payload, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
                     # embedding_model, embedding_dimension = load_embedding_model()
                     await extract_kg_triples(
                         json_path=str(json_path),
@@ -363,9 +408,13 @@ async def calendar_sync(
                         embedding_dimension=request.app.state.embedding_dimension,
                     )
                     upserts.append(eid)
-                    processed[safe_id] = etag_or_updated  # update local index on success
+                    processed[safe_id] = (
+                        etag_or_updated  # update local index on success
+                    )
                 except Exception as ex:
-                    logger.warning(f"[CAL] upsert failed for {eid}: {ex}", exc_info=True)
+                    logger.warning(
+                        f"[CAL] upsert failed for {eid}: {ex}", exc_info=True
+                    )
                     errors.append(str(ex))
                 finally:
                     json_path.unlink(missing_ok=True)
@@ -382,7 +431,11 @@ async def calendar_sync(
             save_json(state_p, state)
             # Persist the processed index even if token resets
             save_json(processed_p, processed)
-            return {"reset": True, "reason": "syncToken expired; run again", "ok": False}
+            return {
+                "reset": True,
+                "reason": "syncToken expired; run again",
+                "ok": False,
+            }
         raise
 
     # Persist tokens and indices
@@ -391,12 +444,14 @@ async def calendar_sync(
     save_json(state_p, state)
     save_json(processed_p, processed)
 
-    results.update({
-        "upserts": len(upserts),
-        "deletes": len(deletes),
-        "errors": errors,
-        "nextSyncToken": next_sync,
-    })
+    results.update(
+        {
+            "upserts": len(upserts),
+            "deletes": len(deletes),
+            "errors": errors,
+            "nextSyncToken": next_sync,
+        }
+    )
 
     logger.info(f"--- [CALENDAR_SYNC] End. Returning: {results}")
     return results

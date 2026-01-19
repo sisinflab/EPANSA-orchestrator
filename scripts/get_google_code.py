@@ -25,6 +25,7 @@ PORT = 8765
 
 CLIENT_SECRET_FILE = "client_secret.json"  # scaricato da Google Cloud Console
 
+
 def load_client_id():
     if not os.path.exists(CLIENT_SECRET_FILE):
         raise RuntimeError(f"{CLIENT_SECRET_FILE} non trovato.")
@@ -63,6 +64,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return  # silenzia log
 
+
 def main():
     client_id = load_client_id()
     state = secrets.token_urlsafe(16)
@@ -90,6 +92,7 @@ def main():
     print("\n================ AUTH CODE =================")
     print(CallbackHandler.auth_code)
     print("===========================================\n")
+
 
 if __name__ == "__main__":
     main()

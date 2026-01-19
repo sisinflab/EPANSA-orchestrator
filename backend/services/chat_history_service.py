@@ -4,12 +4,14 @@ from sqlalchemy import exists
 from backend.services.secure_store import SessionLocal, ChatMessage
 from datetime import datetime
 
+
 def get_temporal_information():
     date_raw = datetime.now()
     day_of_week = date_raw.strftime("%A")
     date = date_raw.strftime("%d %B %Y")
     time = date_raw.strftime("%H:%M")
     return day_of_week, date, time
+
 
 def add_message(user_id: int, role: str, content: str):
     """
@@ -39,11 +41,7 @@ def add_message(user_id: int, role: str, content: str):
             db.add(new_message)
             db.commit()
 
-        new_message = ChatMessage(
-            user_id=user_id,
-            role=role,
-            content=content
-        )
+        new_message = ChatMessage(user_id=user_id, role=role, content=content)
         db.add(new_message)
         db.commit()
         logging.info(f"Saved chat message for user_id={user_id}, role={role}")
@@ -81,15 +79,22 @@ def get_history(user_id: int, limit: int = 50):
     finally:
         db.close()
 
+
 def delete_history(user_id: int):
     from backend.services.conversation import agent_cache
+
     db: Session = SessionLocal()
     try:
         # Directly delete all chat messages for the user
-        deleted_count = db.query(ChatMessage).filter(ChatMessage.user_id == user_id).delete()
+        deleted_count = (
+            db.query(ChatMessage).filter(ChatMessage.user_id == user_id).delete()
+        )
         db.commit()
         agent_cache.delete_item(user_id)
-        return {"ok": True, "message": f"Chat history reset. Deleted {deleted_count} messages."}
+        return {
+            "ok": True,
+            "message": f"Chat history reset. Deleted {deleted_count} messages.",
+        }
     except Exception as e:
         db.rollback()
         return {"ok": False, "error": str(e)}

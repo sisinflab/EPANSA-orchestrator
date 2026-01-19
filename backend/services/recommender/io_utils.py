@@ -12,9 +12,7 @@ import pandas as pd
 log = logging.getLogger("epansa")
 if not log.handlers:
     handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        fmt="%(asctime)s [%(levelname)s] %(message)s"
-    )
+    formatter = logging.Formatter(fmt="%(asctime)s [%(levelname)s] %(message)s")
     handler.setFormatter(formatter)
     log.addHandler(handler)
 log.setLevel(logging.INFO)

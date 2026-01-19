@@ -19,6 +19,7 @@ load_dotenv()
 
 JWT_SECRET = os.getenv("JWT_SECRET", "insecure-default-key")
 
+
 class JWTService:
     def create_access_token(self, subject: str) -> str:
         """Create a JWT for a specific user."""
@@ -29,6 +30,7 @@ class JWTService:
         }
         token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
         return token
+
 
 jwt_service = JWTService()
 
@@ -63,15 +65,20 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             "/healthz",
             "/sync/internal",
             "/auth/google/exchange_code",
-            "/auth/google/authorize"
+            "/auth/google/authorize",
         ]
-        logger.info(f"JWT Auth Middleware initialized with excluded paths: {self.excluded_paths}")
+        logger.info(
+            f"JWT Auth Middleware initialized with excluded paths: {self.excluded_paths}"
+        )
 
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
 
         # Skip authentication for explicitly whitelisted routes or any `/public/*` assets.
-        if any(request.url.path.startswith(path) for path in self.excluded_paths) or "/public" in request.url.path:
+        if (
+            any(request.url.path.startswith(path) for path in self.excluded_paths)
+            or "/public" in request.url.path
+        ):
             logger.debug(f"Skipping authentication for: {request.url.path}")
             return await call_next(request)
 
@@ -82,18 +89,24 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
             user_id_str = user_info.get("sub")
             if not user_id_str:
-                raise HTTPException(status_code=401, detail="User ID (sub) missing from token")
+                raise HTTPException(
+                    status_code=401, detail="User ID (sub) missing from token"
+                )
 
             # Fetch user record from the database to ensure they exist.
             try:
                 user_id_int = int(user_id_str)
                 user_record = user_service.get_user_by_id(user_id_int)
             except (ValueError, TypeError):
-                raise HTTPException(status_code=401, detail="Invalid User ID format in token")
+                raise HTTPException(
+                    status_code=401, detail="Invalid User ID format in token"
+                )
 
             if not user_record:
                 # valid JWT but no corresponding user in our system
-                logger.warning(f"JWT validation successful but no user found for id={user_id_str}")
+                logger.warning(
+                    f"JWT validation successful but no user found for id={user_id_str}"
+                )
                 raise HTTPException(status_code=401, detail="User not found")
 
             # create user_details dict for database initialization
@@ -115,17 +128,27 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
 
             duration = time.time() - start_time
-            logger.debug(f"{request.method} {request.url.path} completed in {duration:.3f}s")
+            logger.debug(
+                f"{request.method} {request.url.path} completed in {duration:.3f}s"
+            )
             return response
 
         except HTTPException as e:
             # Expected auth failures propagate as structured 4xx responses.
-            logger.warning(f"JWT Authentication failed for {request.url.path}: {e.detail}")
-            return JSONResponse(status_code=e.status_code, content={"message": e.detail})
+            logger.warning(
+                f"JWT Authentication failed for {request.url.path}: {e.detail}"
+            )
+            return JSONResponse(
+                status_code=e.status_code, content={"message": e.detail}
+            )
         except Exception as e:
             # Do not leak internal errors; respond with a generic 401 to avoid oracle behavior.
-            logger.error(f"Unexpected error during JWT authentication for {request.url.path}: {str(e)}")
-            return JSONResponse(status_code=401, content={"message": "Authentication failed"})
+            logger.error(
+                f"Unexpected error during JWT authentication for {request.url.path}: {str(e)}"
+            )
+            return JSONResponse(
+                status_code=401, content={"message": "Authentication failed"}
+            )
 
 
 # --- QUICKSTART ---
@@ -141,6 +164,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 #   - iat/nbf/exp      : issue/start/expiry times
 #   - jti              : token ID (optional replay defense via denylist)
 # And prefer JWKS with RS256/ES256 to avoid secret sharing across services.
+
 
 class JWTAuthFilter:
     """
@@ -160,7 +184,9 @@ class JWTAuthFilter:
         self.secret_key = os.getenv("JWT_SECRET")
         if not self.secret_key:
             # Using a hard-coded default is unsafe in production. This warning is explicit.
-            print("Warning: JWT_SECRET environment variable not set. Using a default insecure key.")
+            print(
+                "Warning: JWT_SECRET environment variable not set. Using a default insecure key."
+            )
             self.secret_key = "insecure-default-key"
 
         self.algorithm = "HS256"
@@ -181,17 +207,27 @@ class JWTAuthFilter:
         """
         auth_header = request.headers.get("Authorization")
         if not auth_header:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header is missing")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authorization header is missing",
+            )
 
         parts = auth_header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Authorization header format")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Authorization header format",
+            )
 
         token = parts[1]
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
         except jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
+            )
         except jwt.InvalidTokenError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            )

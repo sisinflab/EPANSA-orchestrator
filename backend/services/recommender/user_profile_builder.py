@@ -1,6 +1,5 @@
 import os
 import logging
-import json
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from neo4j import GraphDatabase
@@ -63,12 +62,16 @@ Facts: {user_profile_text}
 # Pydantic model for structured output
 class UserProfileSummaries(BaseModel):
     food_summary: str = Field(
-        description="A narrative summary of the user's preferences for FOOD, dining, and nightlife.")
+        description="A narrative summary of the user's preferences for FOOD, dining, and nightlife."
+    )
     travel_summary: str = Field(
-        description="A narrative summary of the user's preferences for TRAVEL, sightseeing, culture, nature, and activities.")
+        description="A narrative summary of the user's preferences for TRAVEL, sightseeing, culture, nature, and activities."
+    )
 
 
-async def get_or_create_user_embedding(database: str, user_id: int | str, embedding_model, model_env_value: str):
+async def get_or_create_user_embedding(
+    database: str, user_id: int | str, embedding_model, model_env_value: str
+):
     driver = None
     try:
         uri = os.getenv("NEO4J_URI")
@@ -77,24 +80,32 @@ async def get_or_create_user_embedding(database: str, user_id: int | str, embedd
         driver = GraphDatabase.driver(uri, auth=(user, password), database=database)
 
         with driver.session(database=database) as session:
-            logging.info(f"Extracting or creating profile for user {user_id} from knowledge graph...")
-            result = session.run(USER_PROFILE_AND_LOCATION_QUERY, userId=int(user_id)).single()
+            logging.info(
+                f"Extracting or creating profile for user {user_id} from knowledge graph..."
+            )
+            result = session.run(
+                USER_PROFILE_AND_LOCATION_QUERY, userId=int(user_id)
+            ).single()
 
             # MERGE ensures a result is always returned, but as a safeguard.
             if not result:
-                logging.error(f"Failed to get a result for user {user_id} even with MERGE. This should not happen.")
+                logging.error(
+                    f"Failed to get a result for user {user_id} even with MERGE. This should not happen."
+                )
                 # Fallback to creating a completely empty profile.
                 profile_text = ""
                 last_known_location = None
                 visited_cities = []
             else:
-                profile_text = result.get('user_profile_text')
-                last_known_location = result.get('last_known_location_str')
-                visited_cities = list(set(result.get('visited_cities_list', [])))
+                profile_text = result.get("user_profile_text")
+                last_known_location = result.get("last_known_location_str")
+                visited_cities = list(set(result.get("visited_cities_list", [])))
 
             # Handle new or empty users gracefully.
             if not profile_text or not str(profile_text).strip():
-                logging.warning(f"No profile text found for user {user_id}. Creating default empty profile.")
+                logging.warning(
+                    f"No profile text found for user {user_id}. Creating default empty profile."
+                )
                 # For new or empty users, create empty summaries and generate neutral embeddings.
                 food_summary = ""
                 travel_summary = ""
@@ -107,24 +118,38 @@ async def get_or_create_user_embedding(database: str, user_id: int | str, embedd
                 parser = JsonOutputParser(pydantic_object=UserProfileSummaries)
                 prompt = ChatPromptTemplate.from_template(
                     template=USER_PROFILE_SUMMARIZATION_PROMPT_TEMPLATE,
-                    partial_variables={"format_instructions": parser.get_format_instructions()}
+                    partial_variables={
+                        "format_instructions": parser.get_format_instructions()
+                    },
                 )
                 chain = prompt | llm | parser
 
                 response_json = await chain.ainvoke({"user_profile_text": profile_text})
 
-                food_summary = response_json.get('food_summary', '')
-                travel_summary = response_json.get('travel_summary', '')
+                food_summary = response_json.get("food_summary", "")
+                travel_summary = response_json.get("travel_summary", "")
 
                 logging.info("=" * 80)
-                logging.info(f"Generated Food Profile Summary for User ID {user_id}:\n{food_summary}")
+                logging.info(
+                    f"Generated Food Profile Summary for User ID {user_id}:\n{food_summary}"
+                )
                 logging.info("-" * 80)
-                logging.info(f"Generated Travel Profile Summary for User ID {user_id}:\n{travel_summary}")
+                logging.info(
+                    f"Generated Travel Profile Summary for User ID {user_id}:\n{travel_summary}"
+                )
                 logging.info("=" * 80)
 
                 # Create two separate embeddings
-                food_embedding = embedding_model.embed_query(food_summary) if food_summary else embedding_model.embed_query("")
-                travel_embedding = embedding_model.embed_query(travel_summary) if travel_summary else embedding_model.embed_query("")
+                food_embedding = (
+                    embedding_model.embed_query(food_summary)
+                    if food_summary
+                    else embedding_model.embed_query("")
+                )
+                travel_embedding = (
+                    embedding_model.embed_query(travel_summary)
+                    if travel_summary
+                    else embedding_model.embed_query("")
+                )
 
             # Store both embeddings in Neo4j, regardless of whether they are new or updated.
             store_query = """
@@ -133,14 +158,31 @@ async def get_or_create_user_embedding(database: str, user_id: int | str, embedd
                 u.travel_embedding = $travel_emb,
                 u.embedding_updated_at = timestamp()
             """
-            session.run(store_query, userId=int(user_id), food_emb=food_embedding, travel_emb=travel_embedding)
-            logging.info(f"User food and travel embeddings stored successfully for user {user_id}.")
+            session.run(
+                store_query,
+                userId=int(user_id),
+                food_emb=food_embedding,
+                travel_emb=travel_embedding,
+            )
+            logging.info(
+                f"User food and travel embeddings stored successfully for user {user_id}."
+            )
 
             # Return both embeddings and summaries. Ensures a consistent 6-value return.
-            return food_embedding, travel_embedding, last_known_location, visited_cities, food_summary, travel_summary
+            return (
+                food_embedding,
+                travel_embedding,
+                last_known_location,
+                visited_cities,
+                food_summary,
+                travel_summary,
+            )
 
     except Exception as e:
-        logging.error(f"An error occurred in get_or_create_user_embedding for user {user_id}: {e}", exc_info=True)
+        logging.error(
+            f"An error occurred in get_or_create_user_embedding for user {user_id}: {e}",
+            exc_info=True,
+        )
         # Return a default empty profile to prevent crashes downstream
         empty_emb = embedding_model.embed_query("")
         return empty_emb, empty_emb, None, [], "", ""

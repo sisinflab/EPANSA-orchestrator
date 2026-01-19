@@ -1,8 +1,10 @@
 from backend.services.pkg_population import llm_kg_builder_cypher
 from backend.services.img_description import get_img_description
-from backend.services.constants import (QUERY_TO_RESOLVE_IMG_NAME,
-                                        TMP_DIR,
-                                        IMG_ANALYSIS_VL_CONFIG)
+from backend.services.constants import (
+    QUERY_TO_RESOLVE_IMG_NAME,
+    TMP_DIR,
+    IMG_ANALYSIS_VL_CONFIG,
+)
 
 
 async def imgs_temp_path_resolver(photo_ids: list[str], user_id: int) -> list[str]:
@@ -38,7 +40,7 @@ async def img_analyzer(question: str, photo_ids: list, user_id: int) -> str:
         img_description = get_img_description(
             question=IMG_DEEP_ANALYSIS_PROMPT,
             img_path=img_path,
-            VL_model_env_value=IMG_ANALYSIS_VL_CONFIG
+            VL_model_env_value=IMG_ANALYSIS_VL_CONFIG,
         )
         if not img_description == "I can't respond to this question.":
             descriptions.append(img_description)
@@ -66,4 +68,3 @@ if __name__ == "__main__":
         print(res)
 
     asyncio.run(_test_analyzer())
-

@@ -13,8 +13,10 @@ from backend.core.deps import close_neo4j
 # --- Routers ---
 # Auth endpoints: Google auth code exchange + storage of refresh tokens
 from backend.routers import auth as auth_router
+
 # Functional endpoints: contacts/events/notes/alarms/phone calls + photo upload (client)
 from backend.routers import routers as functional_router
+
 # Runtime sync endpoints: run sync now for me / a user / all users
 from backend.routers import sync_runtime as sync_runtime_router
 from backend.services.scheduler import start_api_scheduler, stop_api_scheduler
@@ -22,6 +24,7 @@ from backend.services.secure_store import create_credentials_table
 from backend.services.user_service import create_user_table
 from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
 from backend.services.recommender.build_poi_data import build_poi_data_pipeline
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,9 +39,13 @@ async def lifespan(app: FastAPI):
         build_poi_data_pipeline()
         logger.info("--- POI data check complete. ---")
     except FileNotFoundError as e:
-        logger.error(f"FATAL: Could not start application due to missing recommender data. {e}")
+        logger.error(
+            f"FATAL: Could not start application due to missing recommender data. {e}"
+        )
     except Exception as e:
-        logger.error(f"An unexpected error occurred during POI data build: {e}", exc_info=True)
+        logger.error(
+            f"An unexpected error occurred during POI data build: {e}", exc_info=True
+        )
     try:
         create_credentials_table()
         create_user_table()
@@ -48,7 +55,6 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Scheduler not started during startup: {e}")
 
     yield
-
 
     try:
         stop_api_scheduler()
@@ -75,7 +81,7 @@ def create_app() -> FastAPI:
         version="1.7.0",
         docs_url="/docs",
         redoc_url="/redoc",
-        lifespan=lifespan  # Register the new lifespan manager
+        lifespan=lifespan,  # Register the new lifespan manager
     )
 
     # --- Logging baseline ---

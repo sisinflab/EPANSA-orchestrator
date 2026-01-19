@@ -14,7 +14,6 @@ from backend.core.config import settings
 from backend.services.google_utils import load_json, save_json
 from backend.services.pkg_population import extract_kg_triples, delete_kg_triples
 
-from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +32,23 @@ def _google_person_to_payload(person: Dict[str, Any]):
     - Uses resourceName to build a stable contact id.
     """
     rid = person.get("resourceName") or ""
-    name = (person.get("names") or [{}])[0].get("displayName", "") if person.get("names") else ""
-    raw_phone = (person.get("phoneNumbers") or [{}])[0].get("value", "") if person.get("phoneNumbers") else ""
+    name = (
+        (person.get("names") or [{}])[0].get("displayName", "")
+        if person.get("names")
+        else ""
+    )
+    raw_phone = (
+        (person.get("phoneNumbers") or [{}])[0].get("value", "")
+        if person.get("phoneNumbers")
+        else ""
+    )
 
     import re as _re
+
     phone = _re.sub(r"[^\d+]", "", raw_phone)
 
     from backend.models.payloads import ContactPayload
+
     return ContactPayload.model_validate(
         {
             "source_app": "contacts",
@@ -83,7 +92,9 @@ async def contacts_sync(
     processed_p = user_sync_dir / "contacts_processed.json"
 
     state = load_json(state_p, {})  # { "syncToken": ... }
-    processed: Dict[str, str] = load_json(processed_p, {})  # safe_contact_id -> etag/updateTime marker
+    processed: Dict[str, str] = load_json(
+        processed_p, {}
+    )  # safe_contact_id -> etag/updateTime marker
 
     # Build People API client with the user's credentials.
     try:
@@ -97,7 +108,14 @@ async def contacts_sync(
         logger.error(f"[CONTACTS] Auth failed for user {uid}: {e}", exc_info=True)
         return {"error": f"Failed to auth People API: {e}", "ok": False}
 
-    results: Dict[str, Any] = {"ok": True, "mode": "", "upserts": 0, "deletes": 0, "skipped": 0, "errors": []}
+    results: Dict[str, Any] = {
+        "ok": True,
+        "mode": "",
+        "upserts": 0,
+        "deletes": 0,
+        "skipped": 0,
+        "errors": [],
+    }
 
     # If no token is present, we backfill unless we are doing init-only.
     perform_backfill = backfill or not state.get("syncToken")
@@ -105,7 +123,9 @@ async def contacts_sync(
     # --------------------- Initialization-only branch ---------------------
     # Mirrors calendar's behavior: if no sync token and not backfilling, we just walk once to obtain nextSyncToken.
     if not state.get("syncToken") and not backfill:
-        logger.info("[CONTACTS] No sync token and backfill disabled. Initializing token for future incremental syncs.")
+        logger.info(
+            "[CONTACTS] No sync token and backfill disabled. Initializing token for future incremental syncs."
+        )
         try:
             init_params: Dict[str, Any] = {
                 "resourceName": "people/me",
@@ -138,7 +158,9 @@ async def contacts_sync(
             logger.info(f"--- [CONTACTS_SYNC] End. Returning: {results}")
             return results
         except Exception as e:
-            logger.error(f"[CONTACTS] Failed to initialize sync token: {e}", exc_info=True)
+            logger.error(
+                f"[CONTACTS] Failed to initialize sync token: {e}", exc_info=True
+            )
             return {"error": str(e), "ok": False}
 
     # --------------------- Backfill / Incremental ---------------------
@@ -195,7 +217,9 @@ async def contacts_sync(
                         processed.pop(safe_id, None)  # keep local index clean
                         deletes.append(rid)
                     except Exception as ex:
-                        logger.warning(f"[CONTACTS] delete failed for {rid}: {ex}", exc_info=True)
+                        logger.warning(
+                            f"[CONTACTS] delete failed for {rid}: {ex}", exc_info=True
+                        )
                         errors.append(str(ex))
                     continue
 
@@ -203,7 +227,9 @@ async def contacts_sync(
                 etag_or_updated: str = person.get("etag") or ""
                 if not etag_or_updated:
                     sources = (person.get("metadata") or {}).get("sources") or []
-                    etag_or_updated = (sources[0].get("updateTime") if sources else None) or "unknown"
+                    etag_or_updated = (
+                        sources[0].get("updateTime") if sources else None
+                    ) or "unknown"
 
                 # Decide operation: insert/update/skip based on local 'processed' index.
                 if safe_id not in processed:
@@ -235,9 +261,13 @@ async def contacts_sync(
                     )
 
                     upserts.append(rid)
-                    processed[safe_id] = etag_or_updated  # Update local index on success.
+                    processed[safe_id] = (
+                        etag_or_updated  # Update local index on success.
+                    )
                 except Exception as ex:
-                    logger.warning(f"[CONTACTS] upsert failed for {rid}: {ex}", exc_info=True)
+                    logger.warning(
+                        f"[CONTACTS] upsert failed for {rid}: {ex}", exc_info=True
+                    )
                     errors.append(str(ex))
                 finally:
                     # Ensure we don't leave temp files behind.
@@ -252,12 +282,18 @@ async def contacts_sync(
     except HttpError as e:
         # 400/410 -> invalid/expired sync token: reset and ask to run again.
         if e.resp is not None and e.resp.status in (400, 410):
-            logger.warning(f"[CONTACTS] Invalid/expired sync token for user {uid}. Resetting.")
+            logger.warning(
+                f"[CONTACTS] Invalid/expired sync token for user {uid}. Resetting."
+            )
             state.pop("syncToken", None)
             save_json(state_p, state)
             # Persist the processed index even if token resets.
             save_json(processed_p, processed)
-            return {"reset": True, "reason": "syncToken expired; run again", "ok": False}
+            return {
+                "reset": True,
+                "reason": "syncToken expired; run again",
+                "ok": False,
+            }
         # Other errors bubble up.
         logger.exception(f"[CONTACTS] HttpError: {e}")
         return {"ok": False, "error": str(e), "where": "contacts_sync.HttpError"}
