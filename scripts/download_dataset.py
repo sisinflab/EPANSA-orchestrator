@@ -44,20 +44,4 @@ if __name__ == "__main__":
     repo_id = "GabrieleConte/ForsquareDataset"
     local_dir = "data/"
 
-    # Check if data already exists
-    if (
-        os.path.exists(
-            os.path.join(local_dir, "recommender/processed/venue_features.parquet")
-        )
-        and os.path.exists(
-            os.path.join(local_dir, "recommender/processed/venue_embeddings.parquet")
-        )
-        and os.path.exists(
-            os.path.join(local_dir, "recommender/raw/dataset_TIST2015_Checkins.txt")
-        )
-    ):
-        logger.info("Dataset already exists. Skipping download.")
-    else:
-        download_dataset_directory(
-            repo_id=repo_id, repo_type="dataset", local_dir=local_dir
-        )
+    download_dataset_directory(repo_id=repo_id, repo_type="dataset", local_dir=local_dir)

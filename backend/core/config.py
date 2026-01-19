@@ -63,17 +63,6 @@ class Settings:
             "ALLOWED_ORIGINS", "http://localhost:5000,http://127.0.0.1:5000"
         )
 
-        # ---- Recommender System Paths ----
-        self.RECOMMENDER_DATA_PATH = os.getenv(
-            "RECOMMENDER_DATA_PATH", "/app/data/recommender/processed"
-        )
-        self.VENUE_FEATURES = os.path.join(
-            self.RECOMMENDER_DATA_PATH, "venue_features.parquet"
-        )
-        self.VENUE_EMBEDDINGS = os.path.join(
-            self.RECOMMENDER_DATA_PATH, "venue_embeddings.parquet"
-        )
-
 
 # Instantiate the class to create the settings object
 settings = Settings()

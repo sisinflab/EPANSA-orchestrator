@@ -254,8 +254,7 @@ Output: Visual evidence synthesis a_vis
 │       ├── analyzer.py         # Visual Refinement (t_VIS)
 │       ├── img_description.py  # Captioning operator (τ)
 │       ├── img_location.py     # Geolocation extraction
-│       ├── google_*.py         # Google service integrations
-│       └── recommender/        # POI recommendation module
+│       └── google_*.py         # Google service integrations
 │
 ├── libs/                         # External libraries (vendored)
 │   └── llm_graph_builder/       # Knowledge graph construction library

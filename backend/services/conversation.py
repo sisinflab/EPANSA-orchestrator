@@ -1,33 +1,30 @@
-import os
 import logging
-from typing import TypedDict, Annotated, Sequence, OrderedDict
 import re
+from collections import OrderedDict
+from typing import Annotated, Sequence, TypedDict
 
-from langchain_core.tools import tool
-from langgraph.graph.message import add_messages
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
-from langgraph.checkpoint.memory import MemorySaver
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
-from langchain_anthropic import ChatAnthropic
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode
 
-from backend.services.analyzer import img_analyzer
-from backend.services import chat_history_service as hist_service
-from backend.core.config import settings
 from backend.models.payloads import ChatResponse
-from backend.services.recommender.recommender_agent import RecommenderAgent
-from backend.services.graphRag_chat import chatbot
+from backend.services import chat_history_service as hist_service
+from backend.services.analyzer import img_analyzer
 from backend.services.constants import (
     AGENT_LLM_CONFIG,
-    CHATBOT_LLM_CONFIG,
     CHATBOT_EMBEDDING_CONFIG,
-    RECOMMENDER_LLM_CONFIG,
+    CHATBOT_LLM_CONFIG,
     TMP_DIR,
 )
+from backend.services.graphRag_chat import chatbot
 from graphrag.query.context_builder.conversation_history import ConversationHistory
 
 logger = logging.getLogger(__name__)
@@ -116,10 +113,9 @@ class AgentState(TypedDict):
 
 
 class WorkflowConfigs:
-    def __init__(self, recommender_agent: RecommenderAgent, user_id: int):
-        self.recommender_agent = recommender_agent
-        self.database = recommender_agent.database
-        self.embedding_model = recommender_agent.embedding_model
+    def __init__(self, database: str, embedding_model, user_id: int):
+        self.database = database
+        self.embedding_model = embedding_model
         self.user_id = user_id
 
         @tool
@@ -186,29 +182,7 @@ class WorkflowConfigs:
                 )
                 return "I'm sorry, I encountered an error while trying to retrieve the information. Please try again later."
 
-        @tool
-        async def PoI_recommender(question: str) -> str:
-            """
-            Useful when the user requests recommendations or advices about trips and places to visit.
-            Takes in input the user question and returns a list of suggested Points-of-Interest and places to visit
-            that better fits his personality.
-            """
-            logger.info(
-                f"PoI_recommender called for user_id: {self.user_id} with question: '{question}'"
-            )
-            try:
-                # use the already initialized recommender_agent
-                response = await self.recommender_agent.get_response(question)
-                logger.info(f"PoI_recommender generated response: {response}")
-                return response
-            except Exception as e:
-                logger.info(
-                    f"Error in PoI_recommender for user {self.user_id}: {e}",
-                    exc_info=True,
-                )
-                return "I'm sorry, I encountered an error while trying to find recommendations for you. Please try again later."
-
-        self.primary_tools = [graph_RAG, PoI_recommender]
+        self.primary_tools = [graph_RAG]
         self.fallback_tool = img_deep_analysis
 
 
@@ -223,7 +197,7 @@ class ReactAgent:
 
     # GRAPH NODES
     async def standard_agent(self, state: AgentState) -> AgentState:
-        """Main agent: it chooses between RAG and PoI_recommender"""
+        """Main agent: it uses RAG to answer questions"""
         response = await self.llm_w_primary_tools.ainvoke(state["messages"])
         return {"messages": [response], "rag_evaluation": state["rag_evaluation"]}
 
@@ -349,35 +323,21 @@ async def process_user_command(
 
         cache_key = user_id
         if cache_key in agent_cache:
-            logger.info(f"Agent and profile cache hit for user_id: {user_id}")
-            graph_agent, recomm_agent = agent_cache[cache_key]
+            logger.info(f"Agent cache hit for user_id: {user_id}")
+            graph_agent = agent_cache[cache_key]
         else:
-            logger.info(f"New agent and profile creation for user_id: {user_id}")
-
-            project_root = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "..", "..")
-            )
-            poi_data_path = os.path.join(project_root, settings.RECOMMENDER_DATA_PATH)
-
-            # create and initialize Recommender Agent
-            recomm_agent = RecommenderAgent(
-                database=db_name,
-                user_id=user_id,
-                embedding_model=embedding_model,
-                model_env_value=RECOMMENDER_LLM_CONFIG,
-                poi_data_path=poi_data_path,
-            )
-            await recomm_agent.initialize()
+            logger.info(f"New agent creation for user_id: {user_id}")
 
             # create LangGraph React Agent
             memory = MemorySaver()
-            # pass the already initialized recommender_agent
-            wf = WorkflowConfigs(recommender_agent=recomm_agent, user_id=user_id)
+            wf = WorkflowConfigs(
+                database=db_name, embedding_model=embedding_model, user_id=user_id
+            )
             ra = ReactAgent(wf)
             graph_agent = ra.create_agent(checkpointer=memory)
 
             # save in cache
-            agent_cache[cache_key] = (graph_agent, recomm_agent)
+            agent_cache[cache_key] = graph_agent
 
         config = {"configurable": {"thread_id": cache_key}, "recursion_limit": 15}
         assistant_response = await graph_agent.ainvoke(

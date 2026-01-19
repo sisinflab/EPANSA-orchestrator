@@ -68,7 +68,7 @@ COPY scripts/download_dataset.py /app/
 RUN mkdir -p /app/storage/emb_model_cache && \
     chown -R appuser:appuser /app/storage
 
-RUN mkdir -p /app/data/tmp /app/data/sync /app/data/recommender/processed /app/data/recommender/raw && \
+RUN mkdir -p /app/data/tmp /app/data/sync && \
     chown -R appuser:appuser /app/data
 
 # Download dataset as appuser (not root)

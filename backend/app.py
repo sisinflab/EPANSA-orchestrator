@@ -23,7 +23,6 @@ from backend.services.scheduler import start_api_scheduler, stop_api_scheduler
 from backend.services.secure_store import create_credentials_table
 from backend.services.user_service import create_user_table
 from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
-from backend.services.recommender.build_poi_data import build_poi_data_pipeline
 
 
 @asynccontextmanager
@@ -34,18 +33,6 @@ async def lifespan(app: FastAPI):
     """
     # --- Code to run on startup ---
     logger = logging.getLogger(__name__)
-    try:
-        logger.info("--- Checking for recommender POI data before startup ---")
-        build_poi_data_pipeline()
-        logger.info("--- POI data check complete. ---")
-    except FileNotFoundError as e:
-        logger.error(
-            f"FATAL: Could not start application due to missing recommender data. {e}"
-        )
-    except Exception as e:
-        logger.error(
-            f"An unexpected error occurred during POI data build: {e}", exc_info=True
-        )
     try:
         create_credentials_table()
         create_user_table()
