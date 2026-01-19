@@ -31,9 +31,7 @@
 5. [Intended Uses](#5-intended-uses)
 6. [Evaluation Protocol](#6-evaluation-protocol)
 7. [Limitations and Biases](#7-limitations-and-biases)
-8. [Access and Maintenance](#8-access-and-maintenance)
-9. [Citation](#9-citation)
-10. [Contact](#10-contact)
+8. [Citation](#9-citation)
 
 ---
 
@@ -305,31 +303,7 @@ python all_metrics_normalized.py
 
 ---
 
-## 8. Access and Maintenance
-
-### 8.1 Access
-
-| Resource | Location |
-|----------|----------|
-| **Repository** | [GitHub](https://github.com/sisinflab/EPANSA-orchestrator) |
-| **Archived Version** | [Zenodo](https://doi.org/10.5281/zenodo.XXXXXXX) |
-| **License** | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
-
-### 8.2 Versioning
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2026-01-19 | Initial release |
-
-### 8.3 Maintenance
-
-- **Maintainers**: SisInfLab, Polytechnic University of Bari
-- **Issue Tracking**: GitHub Issues
-- **Updates**: Versioned releases on Zenodo
-
----
-
-## 9. Citation
+## 8. Citation
 
 If you use this dataset in your research, please cite:
 
@@ -342,18 +316,6 @@ If you use this dataset in your research, please cite:
   publisher = {}
 }
 ```
-
----
-
-## 10. Contact
-
-For questions, issues, or contributions:
-
-| Contact | Information |
-|---------|-------------|
-| **Institution** | SisInfLab, Polytechnic University of Bari |
-| **Email** | [sisinflab@poliba.it](mailto:sisinflab@poliba.it) |
-| **GitHub Issues** | [Open an Issue](https://github.com/sisinflab/EPANSA-orchestrator/issues) |
 
 ---
 
