@@ -1,6 +1,5 @@
 # EpisTwin Evaluation Benchmark
 
-## Supplementary Material for IJCAI 2026 Submission
 
 ---
 
