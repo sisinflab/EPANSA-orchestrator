@@ -1,0 +1,208 @@
+# =============================================================================
+# EpisTwin Hyperparameters Configuration
+# =============================================================================
+# This file documents all hyperparameters used in the IJCAI 2026 paper experiments.
+# These values represent the final settings after the exploration ranges noted below.
+#
+# For reproducibility, ensure these values match your .env configuration.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# PKG Population (Φ_C) - Knowledge Graph Construction
+# -----------------------------------------------------------------------------
+# Implementation: backend/services/pkg_population.py
+# Library: libs/llm_graph_builder/src/create_chunks.py
+pkg_population:
+  # Token chunk size for text processing
+  # Environment variable: TOKENS_PER_CHUNK
+  tokens_per_chunk: 300
+  range_explored: [100, 500]
+  description: "Number of tokens per chunk during text segmentation"
+  
+  # Overlap between consecutive chunks
+  # Environment variable: CHUNK_OVERLAP
+  chunk_overlap: 20
+  range_explored: [10, 50]
+  description: "Token overlap to maintain context across chunk boundaries"
+  
+  # Number of chunks combined for entity extraction
+  # Environment variable: NUMBER_OF_CHUNKS_TO_COMBINE
+  chunks_to_combine: 3
+  range_explored: [1, 5]
+  description: "Chunks grouped together for LLM entity extraction call"
+  
+  # Maximum tokens per extraction call
+  # Environment variable: MAX_TOKEN_CHUNK_SIZE
+  max_token_chunk_size: 4000
+  range_explored: [2000, 8000]
+  description: "Upper limit for content sent to extraction LLM"
+  
+  # Threshold for large file handling
+  # Environment variable: WORDS_FOR_BIG_FILE
+  words_for_big_file: 500000
+  description: "Word count threshold to trigger chunked processing mode"
+
+# -----------------------------------------------------------------------------
+# Community Detection (Leiden Algorithm)
+# -----------------------------------------------------------------------------
+# Implementation: libs/llm_graph_builder/src/communities.py
+# Reference: Traag, V.A., Waltman, L. & van Eck, N.J. (2019)
+community_detection:
+  # Modularity resolution parameter
+  resolution: 1.0
+  range_explored: [0.5, 2.0]
+  description: "Higher values produce more, smaller communities"
+  
+  # Minimum nodes per community
+  min_community_size: 5
+  description: "Communities below this threshold are dissolved"
+  
+  # Algorithm variant
+  algorithm: "leiden"
+  description: "Leiden algorithm for community detection (improvement over Louvain)"
+
+# -----------------------------------------------------------------------------
+# Generative Summarization (f_SUM)
+# -----------------------------------------------------------------------------
+# Implementation: libs/llm_graph_builder/src/communities.py
+# Environment variable: COMMUNITIES_LLM_CONFIG
+community_summarization:
+  # Maximum summary length
+  max_summary_tokens: 500
+  description: "Token limit for community summary generation"
+  
+  # Temperature for summary generation
+  temperature: 0.3
+  description: "Lower temperature for more deterministic summaries"
+
+# -----------------------------------------------------------------------------
+# Reasoning Engine (Core Agent Δ_Core)
+# -----------------------------------------------------------------------------
+# Implementation: backend/services/conversation.py
+reasoning_engine:
+  # Maximum reasoning iterations
+  # Prevents infinite loops in agent decision-making
+  max_iterations: 10
+  description: "Upper bound on reasoning steps before forced termination"
+  
+  # Agent policy temperature (π_θ)
+  # Environment variable: AGENT_LLM_CONFIG (embedded in model config)
+  temperature: 0.7
+  range_explored: [0.0, 1.0]
+  description: "Temperature for action selection in the Core Agent"
+  
+  # Top-K communities for local search
+  top_k_communities: 5
+  range_explored: [3, 10]
+  description: "Number of communities retrieved during GraphRAG local search"
+  
+  # Epistemic verification threshold
+  # Self-reflection module (f_VAL)
+  epistemic_threshold: 0.7
+  description: "Confidence threshold triggering Fallback Agent activation"
+
+# -----------------------------------------------------------------------------
+# Visual Refinement (t_VIS)
+# -----------------------------------------------------------------------------
+# Implementation: backend/services/analyzer.py
+# Environment variable: IMG_ANALYSIS_VL_CONFIG
+visual_refinement:
+  # Maximum images analyzed per query
+  max_images_per_query: 5
+  description: "Limit on visual payloads processed for a single query"
+  
+  # VQA model temperature
+  temperature: 0.0
+  description: "Zero temperature for deterministic visual question answering"
+
+# -----------------------------------------------------------------------------
+# Visual Captioning (τ)
+# -----------------------------------------------------------------------------
+# Implementation: backend/services/img_description.py
+visual_captioning:
+  # Dense captioning prompt strategy
+  prompt_strategy: "detailed_description"
+  description: "Prompt template for visual-to-text transduction"
+  
+  # Maximum caption length
+  max_caption_tokens: 300
+  description: "Token limit for image captions during PKG population"
+
+# -----------------------------------------------------------------------------
+# GraphRAG Integration
+# -----------------------------------------------------------------------------
+# Implementation: backend/services/graphRag_chat.py
+# Reference: Microsoft GraphRAG (2024)
+graphrag:
+  # Search mode
+  search_mode: "local"
+  description: "Local search for entity-centric queries (vs global for summarization)"
+  
+  # Context window size
+  context_window: 4000
+  description: "Token budget for retrieved context"
+  
+  # Embedding model
+  # Environment variable: CHATBOT_EMBEDDING_CONFIG
+  embedding_dimension: 768
+  description: "Dimension of text-embedding-004 vectors"
+
+# -----------------------------------------------------------------------------
+# Model Configurations (Paper Experiments)
+# -----------------------------------------------------------------------------
+# These are the exact models used in the paper experiments.
+# Configure via environment variables in .env
+models:
+  extraction:
+    provider: "groq"
+    model: "openai/gpt-oss-120b"
+    purpose: "Entity extraction (f_KGC)"
+    env_var: "EXTRACTION_LLM_CONFIG"
+    
+  communities:
+    provider: "gemini"
+    model: "gemini-2.5-flash-lite"
+    purpose: "Community summarization (f_SUM)"
+    env_var: "COMMUNITIES_LLM_CONFIG"
+    
+  chatbot:
+    provider: "gemini"
+    model: "gemini-2.5-pro"
+    purpose: "GraphRAG response generation"
+    env_var: "CHATBOT_LLM_CONFIG"
+    
+  agent:
+    provider: "groq"
+    model: "qwen/qwen3-32b"
+    purpose: "Core Agent policy (π_θ)"
+    env_var: "AGENT_LLM_CONFIG"
+    
+  visual_analysis:
+    provider: "groq"
+    model: "meta-llama/llama-4-maverick-17b-128e-instruct"
+    purpose: "Visual refinement (M_vis)"
+    env_var: "IMG_ANALYSIS_VL_CONFIG"
+    
+  embeddings:
+    provider: "gemini"
+    model: "text-embedding-004"
+    purpose: "Community and entity embeddings"
+    env_var: "CHATBOT_EMBEDDING_CONFIG"
+
+# -----------------------------------------------------------------------------
+# Evaluation Settings
+# -----------------------------------------------------------------------------
+# Settings used for PersonalQA-71-100 benchmark evaluation
+evaluation:
+  # Number of judge models
+  num_judges: 3
+  description: "Multiple LLM judges for robust evaluation"
+  
+  # Evaluation metrics
+  metrics:
+    - accuracy
+    - reasoning_trace_quality
+    - visual_refinement_trigger_rate
+    
+  # Random seed for reproducibility
+  random_seed: 42

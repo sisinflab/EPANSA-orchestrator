@@ -318,22 +318,28 @@ async def delete_kg_triples(
     return {"status": res["status"], "message": res["message"]}
 
 
-# FOR LOCAL TESTING PURPOSES ONLY
-async def main():
-    from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
-    embedding_model, embedding_dimension = load_embedding_model()
-
-    await extract_kg_triples(
-        json_path="../../data/tmp/user-1/note_13.txt",
-        unstruct_path="../../data/tmp/user-1/noteContent_13.txt",
-        operation="update",
-        database="user-1",
-        kind="note",
-        embedding_model=embedding_model,
-        embedding_dimension=embedding_dimension
-    )
-
+# -----------------------------------------------------------------------------
+# Development/Testing Entry Point
+# -----------------------------------------------------------------------------
+# This section is for local development testing only.
+# Run with: python -m backend.services.pkg_population
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+
+    async def _test_extraction():
+        """Test function for local development."""
+        from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
+        embedding_model, embedding_dimension = load_embedding_model()
+
+        await extract_kg_triples(
+            json_path="data/tmp/user-1/note_13.txt",
+            unstruct_path="data/tmp/user-1/noteContent_13.txt",
+            operation="update",
+            database="user-1",
+            kind="note",
+            embedding_model=embedding_model,
+            embedding_dimension=embedding_dimension
+        )
+
+    asyncio.run(_test_extraction())

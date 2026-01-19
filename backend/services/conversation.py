@@ -383,22 +383,11 @@ async def process_user_command(user_id: int, db_name: str, command_text: str, em
         return ChatResponse(error="An internal error occurred while processing your request.")
 
 
-# FOR LOCAL TESTING PURPOSES ONLY
-async def main():
-    from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
-    embedding_model, _ = load_embedding_model()
-
-    hist_service.delete_history(user_id=1)
-    #print(hist_service.get_history(1))
-
-    res = await process_user_command(user_id=1,
-                                     db_name="user-1",
-                                     command_text="In the photo at the stadium a few months ago, what color were the stands?",
-                                     embedding_model=embedding_model,
-                                     )
-
-    print(res.response)
-
+# -----------------------------------------------------------------------------
+# Development/Testing Entry Point
+# -----------------------------------------------------------------------------
+# This section is for local development testing only.
+# Run with: python -m backend.services.conversation
 
 if __name__ == "__main__":
     import asyncio
@@ -406,4 +395,19 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-    asyncio.run(main())
+    async def _test_conversation():
+        """Test function for local development."""
+        from libs.llm_graph_builder.src.shared.common_fn import load_embedding_model
+        embedding_model, _ = load_embedding_model()
+
+        hist_service.delete_history(user_id=1)
+
+        res = await process_user_command(
+            user_id=1,
+            db_name="user-1",
+            command_text="In the photo at the stadium a few months ago, what color were the stands?",
+            embedding_model=embedding_model,
+        )
+        print(res.response)
+
+    asyncio.run(_test_conversation())

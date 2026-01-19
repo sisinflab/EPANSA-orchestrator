@@ -32,7 +32,6 @@ async def img_analyzer(question: str, photo_ids: list, user_id: int) -> str:
     """
 
     imgs_temp_path = await imgs_temp_path_resolver(photo_ids, user_id)
-    # imgs_temp_path = ["../../data/tmp/user-1/photo_20250623.jpg"]     # FOR LOCAL TESTING PURPOSES ONLY
 
     descriptions = []
     for img_path in imgs_temp_path:
@@ -52,12 +51,19 @@ async def img_analyzer(question: str, photo_ids: list, user_id: int) -> str:
     return final_response
 
 
-# FOR LOCAL TESTING PURPOSES ONLY
-async def main():
-    res = await img_analyzer("What color is the laundry basket at my house?", [], 1)
-    print(res)
+# -----------------------------------------------------------------------------
+# Development/Testing Entry Point
+# -----------------------------------------------------------------------------
+# This section is for local development testing only.
+# Run with: python -m backend.services.analyzer
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+
+    async def _test_analyzer():
+        """Test function for local development."""
+        res = await img_analyzer("What color is the laundry basket at my house?", [], 1)
+        print(res)
+
+    asyncio.run(_test_analyzer())
 

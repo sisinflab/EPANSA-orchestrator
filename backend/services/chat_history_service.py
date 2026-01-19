@@ -34,10 +34,7 @@ def add_message(user_id: int, role: str, content: str):
             new_message = ChatMessage(
                 user_id=user_id,
                 role="system",
-                # content=temporal_sys_prompt,
-
-                # FOR LOCAL TESTING PURPOSES ONLY
-                content="TEMPORAL CONTEXT: CURRENT DAY OF WEEK: Monday, CURRENT DATE: 1 September 2025, CURRENT TIME: 13:00. Use these temporal details if the question requires time-awareness, otherwise ignore them."
+                content=temporal_sys_prompt,
             )
             db.add(new_message)
             db.commit()

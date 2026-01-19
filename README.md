@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Paper**: *EpisTwin: Neuro-Symbolic Personal Knowledge Graphs for Trustworthy Personal AI*  
-> **Authors**: [Authors listed in paper]  
+> **Authors**: Giovanni Servedio;Potito Aghilar;Alessio Mattiace;Gianni Carmosino;Francesco Musicco;Gabriele Conte;Vito Walter Anelli;Tommaso Di Noia;Francesco Maria Donini
 > **Venue**: IJCAI 2026  
 > **arXiv**: [arXiv link placeholder]
 
@@ -255,19 +255,98 @@ Output: Visual evidence synthesis a_vis
 │       ├── img_description.py  # Captioning operator (τ)
 │       ├── img_location.py     # Geolocation extraction
 │       ├── google_*.py         # Google service integrations
+│       └── recommender/        # POI recommendation module
+│
+├── libs/                         # External libraries (vendored)
+│   └── llm_graph_builder/       # Knowledge graph construction library
+│       ├── functions.py         # Public API (upload, extract, postprocess)
+│       ├── src/                 # Core implementation
+│       │   ├── main.py          # Entry point for extraction pipeline
+│       │   ├── create_chunks.py # Text chunking (f_chunk)
+│       │   ├── chunkid_entities.py  # Entity extraction (f_KGC)
+│       │   ├── make_relationships.py # Relationship inference
+│       │   ├── communities.py   # Leiden community detection
+│       │   ├── post_processing.py # Embeddings & vector indexes
+│       │   ├── graphDB_dataAccess.py # Neo4j graph operations
+│       │   └── shared/          # Utilities & constants
+│       ├── requirements.txt     # Library-specific dependencies
+│       └── LICENSE              # Apache 2.0 License
 │       
-├── data/                        # Runtime data directory
-│   ├── tmp/                    # Temporary processing files
-│   ├── sync/                   # Sync state persistence
+├── config/                       # Configuration files
+│   └── hyperparameters.yaml     # Experiment hyperparameters
+│
+├── data/                         # Runtime data directory
+│   ├── tmp/                     # Temporary processing files
+│   └── sync/                    # Sync state persistence
 │   
-├── images/                      # Architecture diagrams
-├── benchmark/                   # PersonalQA-71-100 dataset
-├── pyproject.toml              # Dependencies (uv/pip)
-├── uv.lock                     # Locked dependency versions
-├── docker-compose.yml          # Service orchestration
-├── Dockerfile                  # Multi-stage build
-└── example.env                 # Environment template
+├── scripts/                      # Utility scripts
+│   ├── setup_reproducibility.sh # Environment setup & validation
+│   ├── download_dataset.py      # Dataset downloader
+│   ├── generate_jwt.py          # JWT token generator
+│   └── get_google_code.py       # OAuth flow helper
+│
+├── .github/workflows/           # CI/CD pipelines
+│   └── reproducibility.yml      # Reproducibility validation
+│
+├── images/                       # Architecture diagrams
+├── benchmark/                    # PersonalQA-71-100 dataset
+├── pyproject.toml               # Dependencies (uv/pip)
+├── uv.lock                      # Locked dependency versions
+├── docker-compose.yml           # Service orchestration (Neo4j Enterprise)
+├── docker-compose.community.yml # Alternative config (Neo4j Community)
+├── Dockerfile                   # Multi-stage build
+├── example.env                  # Environment template
+└── LICENSE                      # MIT License
 ```
+
+### LLM Graph Builder Integration
+
+EpisTwin integrates a modified version of [LLM Graph Builder](https://github.com/neo4j-labs/llm-graph-builder) (Apache 2.0 License) for knowledge graph construction. The library is vendored under `libs/llm_graph_builder/` as a Git submodule.
+
+#### Key Functions Used
+
+| Function | Purpose | Used In |
+|----------|---------|---------||
+| `upload_file()` | Creates source nodes in Neo4j | `pkg_population.py` |
+| `extract_knowledge_graph_from_file()` | LLM-based triple extraction (f_KGC) | `pkg_population.py` |
+| `post_processing()` | Entity embeddings, vector indexes, communities | `pkg_population.py` |
+| `delete_document_and_entities()` | Graph cleanup for re-sync | `pkg_population.py` |
+| `execute_cypher_query()` | Direct Cypher query execution | `pkg_population.py`, `analyzer.py` |
+
+#### Code Example: PKG Population Pipeline
+
+```python
+# backend/services/pkg_population.py
+from libs.llm_graph_builder.functions import (
+    upload_file,
+    extract_knowledge_graph_from_file,
+    post_processing,
+    execute_cypher_query
+)
+
+async def llm_kg_builder_extract(fileName, database, content, ...):
+    return await extract_knowledge_graph_from_file(
+        file_name=fileName,
+        content=content,
+        uri=URI,
+        userName=USERNAME,
+        password=PASSWORD,
+        database=database,
+        model_name=EXTRACTION_MODEL_NAME,
+        model_env_value=EXTRACTION_LLM_CONFIG,
+        token_chunk_size=int(os.getenv("TOKENS_PER_CHUNK", 300)),
+        chunk_overlap=int(os.getenv("CHUNK_OVERLAP", 20)),
+        # ... additional parameters
+    )
+```
+
+#### Modifications from Upstream
+
+The vendored library includes the following modifications:
+- Multi-tenant database support via dynamic `database` parameter
+- Custom model configuration format (`provider,model,base_url,api_key`)
+- Integration with EpisTwin's environment variable system
+- Additional error handling for production deployments
 
 ---
 
@@ -613,6 +692,122 @@ curl -H "Authorization: Bearer $GROQ_API_KEY" \
 ```bash
 # Increase token limit
 MAX_TOKEN_CHUNK_SIZE=8000
+```
+
+---
+
+## Reproducibility
+
+This section documents the resources and procedures required to reproduce the experimental results presented in the paper, following [IJCAI 2026 Reproducibility Guidelines](https://2026.ijcai.org/reproducibility/).
+
+### Quick Start (Reproducibility Setup)
+
+```bash
+# 1. Clone with submodules
+git clone --recurse-submodules https://github.com/[repository]/epistwin.git
+cd epistwin
+
+# 2. Run reproducibility setup script
+chmod +x scripts/setup_reproducibility.sh
+./scripts/setup_reproducibility.sh
+
+# 3. Configure environment
+cp example.env .env
+# Edit .env with your API keys (see Configuration section)
+
+# 4. Launch services
+docker compose up -d
+```
+
+### System Requirements
+
+| Component | Minimum | Recommended | Paper Experiments |
+|-----------|---------|-------------|-------------------|
+| CPU | 8 cores | 16+ cores | AMD EPYC 7763 (64 cores) |
+| RAM | 16 GB | 32 GB | 128 GB |
+| GPU | - | NVIDIA ≥16GB VRAM | - (API-based inference) |
+| Storage | 50 GB SSD | 100 GB SSD | 500 GB NVMe |
+| OS | Linux/macOS | Ubuntu 22.04 LTS | Ubuntu 22.04 LTS |
+
+### Software Dependencies
+
+| Dependency | Version | Purpose |
+|------------|---------|--------|
+| Python | ≥ 3.11 | Runtime |
+| Docker | ≥ 24.0 | Container orchestration |
+| Docker Compose | v2 | Service management |
+| uv | Latest | Package management |
+| Neo4j | 5.x | Graph database |
+| PostgreSQL | 15 | Token storage |
+
+### Neo4j Configuration Options
+
+EpisTwin supports both Neo4j Enterprise and Community Edition:
+
+**Enterprise Edition** (default, recommended for production):
+```bash
+docker compose up -d
+```
+
+**Community Edition** (no license required, suitable for reproduction):
+```bash
+docker compose -f docker-compose.community.yml up -d
+```
+
+> **Note**: Community Edition does not include APOC and GDS plugins. Some advanced graph algorithms may have reduced performance, but core functionality remains intact.
+
+### Hyperparameter Configuration
+
+All hyperparameters used in paper experiments are documented in `config/hyperparameters.yaml`:
+
+```yaml
+# PKG Population (Φ_C)
+pkg_population:
+  tokens_per_chunk: 300        # Range explored: [100, 500]
+  chunk_overlap: 20            # Range explored: [10, 50]
+  chunks_to_combine: 3         # Range explored: [1, 5]
+  max_token_chunk_size: 4000   # Range explored: [2000, 8000]
+
+# Community Detection (Leiden)
+community_detection:
+  resolution: 1.0
+  min_community_size: 5
+
+# Reasoning Engine
+reasoning:
+  max_iterations: 10
+  temperature: 0.7
+  top_k_communities: 5
+```
+
+### API Keys Required
+
+| Provider | Purpose | Environment Variable |
+|----------|---------|---------------------|
+| Groq | Entity extraction, Agent policy | `GROQ_API_KEY` |
+| Google Gemini | Community summarization, Response generation | `GEMINI_API_KEY` |
+| Google Cloud | OAuth for data access | `client_secret.json` |
+
+### Reproducibility Checklist
+
+- [ ] **Code Availability**: All source code is provided in this repository
+- [ ] **Dependencies**: Locked versions in `uv.lock` and `requirements.txt`
+- [ ] **Configuration**: Complete environment template in `example.env`
+- [ ] **Hyperparameters**: Documented in `config/hyperparameters.yaml`
+- [ ] **Hardware**: Computing infrastructure documented above
+- [ ] **Data**: PersonalQA-71-100 benchmark (to be released upon acceptance)
+- [ ] **External Libraries**: LLM Graph Builder vendored with Apache 2.0 license
+
+### Validation
+
+Run the CI reproducibility check locally:
+
+```bash
+# Validate environment setup
+./scripts/setup_reproducibility.sh --check-only
+
+# Run integration tests
+python -m pytest tests/ -v
 ```
 
 ---

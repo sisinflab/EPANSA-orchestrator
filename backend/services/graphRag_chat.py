@@ -137,22 +137,29 @@ async def chatbot(
     return cleaned_response
 
 
-# FOR LOCAL TESTING PURPOSES ONLY
-async def main():
-    history = [
-        {"role": "system", "content": "TEMPORAL CONTEXT: DAY: Monday, DATE: 1 September 2025, TIME: 13:00. Use these temporal details only if the question requires time awareness—otherwise ignore them."},
-    ]
-
-    result = await chatbot(
-        user_input_dir="../../data/tmp/user-1/gRag/output",
-        model_env_value=CHATBOT_LLM_CONFIG,
-        embedding_env_value=CHATBOT_EMBEDDING_CONFIG,
-        query="Why is my alarm set for 16:00 today, did I forget an event?",
-        conversation_history=ConversationHistory.from_list(history),
-        mode="rag",
-    )
-    print(result)
+# -----------------------------------------------------------------------------
+# Development/Testing Entry Point
+# -----------------------------------------------------------------------------
+# This section is for local development testing only.
+# Run with: python -m backend.services.graphRag_chat
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+
+    async def _test_chatbot():
+        """Test function for local development."""
+        history = [
+            {"role": "system", "content": "TEMPORAL CONTEXT: DAY: Monday, DATE: 1 September 2025, TIME: 13:00. Use these temporal details only if the question requires time awareness—otherwise ignore them."},
+        ]
+
+        result = await chatbot(
+            user_input_dir="data/tmp/user-1/gRag/output",
+            model_env_value=CHATBOT_LLM_CONFIG,
+            embedding_env_value=CHATBOT_EMBEDDING_CONFIG,
+            query="Why is my alarm set for 16:00 today, did I forget an event?",
+            conversation_history=ConversationHistory.from_list(history),
+            mode="rag",
+        )
+        print(result)
+
+    asyncio.run(_test_chatbot())
