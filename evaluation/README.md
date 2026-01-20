@@ -118,7 +118,7 @@ The dataset was **synthetically constructed** by domain experts to ensure:
 
 - **Authors**: Question-answer pairs were authored by the research team
 - **Validation**: Each QA pair was independently verified against the knowledge base
-- **Format**: Triplets $(q, a_{target}, a_{sys})$ where $a_{target}$ contains only strictly necessary information
+- **Format**: Triplets $(q, a_{target}, a_{ET})$ where $a_{ET}$ contains only strictly necessary information
 
 ### 3.3 Quality Assurance
 
