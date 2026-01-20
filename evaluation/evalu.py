@@ -125,15 +125,14 @@ def run_evaluation():
 
         feedback, score = evaluate_with_llm(
             instruction=row["QUESTION"],
-            response=row["ACTUAL ANSWER"],
-            reference=row["DESIRED ANSWER"],
+            response=row["EpisTwin ANSWER"],
+            reference=row["TARGET ANSWER"],
         )
 
         results.append(
             {
                 "QUESTION": row["QUESTION"],
-                "ACTUAL_ANSWER": row["ACTUAL ANSWER"],
-                "HUMAN_SCORE": row["RATING (0-5)"],
+                "ACTUAL_ANSWER": row["EpisTwin ANSWER"],
                 "PROMETHEUS_FEEDBACK": feedback,
                 "PROMETHEUS_SCORE": score,
             }
