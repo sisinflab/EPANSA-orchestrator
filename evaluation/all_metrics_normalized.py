@@ -15,7 +15,7 @@ import seaborn as sns
 from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
 # Configuration
-INPUT_FILE = "Analisi_Comparativa_Modelli_normalized.csv"
+INPUT_FILE = "Model_analysis_normalized.csv"
 OUTPUT_TABLE_FILE = "Comparison_Summary_Table.csv"
 
 
