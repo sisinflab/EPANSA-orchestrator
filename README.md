@@ -602,9 +602,8 @@ The `IJCAI_Test_Dataset.csv` contains ground truth for evaluation with questions
 | Column | Description |
 |--------|-------------|
 | `QUESTION` | Natural language query |
-| `DESIRED ANSWER` | Ground truth based on knowledge base |
-| `ACTUAL ANSWER` | Model's generated response (for evaluation) |
-| `RATING` | Human or synthetic score |
+| `TARGET ANSWER` | Ground truth based on knowledge base |
+| `EpisTwin ANSWER` | Model's generated response (for evaluation) |
 
 **Sample Question Types:**
 - *Temporal*: "Did I wake up before the alarm last Sunday?"
