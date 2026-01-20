@@ -150,9 +150,8 @@ evaluation/
 | Column | Type | Description |
 |--------|------|-------------|
 | `QUESTION` | string | Natural language query |
-| `DESIRED ANSWER` | string | Ground truth answer (minimal necessary information) |
-| `ACTUAL ANSWER` | string | System-generated response (populated during evaluation) |
-| `RATING` | integer | Human or synthetic score (0-5 scale) |
+| `TARGET ANSWER` | string | Ground truth answer (minimal necessary information) |
+| `EpisTwin ANSWER` | string | System-generated response (populated during evaluation) |
 
 **File Format**: CSV with semicolon (`;`) delimiter, UTF-8 encoding
 
