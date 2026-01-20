@@ -14,7 +14,7 @@ import pandas as pd
 
 # Configuration
 FILE_PATTERN = "prometheus_eval_results_*.csv"
-OUTPUT_MASTER_CSV = "Analisi_Comparativa_Modelli_normalized.csv"
+OUTPUT_MASTER_CSV = "Model_analysis_normalized.csv"
 
 
 def normalize_score(score):
