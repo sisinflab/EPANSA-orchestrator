@@ -20,7 +20,6 @@ Personal Artificial Intelligence is currently constrained by the fragmentation o
 
 ## Table of Contents
 
-- [Architecture Overview](#architecture-overview)
 - [Algorithms](#algorithms)
   - [PKG Population Task (Ψ)](#pkg-population-task-ψ)
   - [Reasoning Engine](#reasoning-engine)
