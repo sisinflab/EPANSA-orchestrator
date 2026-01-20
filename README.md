@@ -39,20 +39,6 @@ Personal Artificial Intelligence is currently constrained by the fragmentation o
 
 ---
 
-## Architecture Overview
-
-<p align="center">
-  <img src="images/PKG_aggregation.pdf" alt="PKG Population Architecture" width="100%"/>
-</p>
-
-**Figure 1**: PKG population when the Information Object is a photo: triples are extracted from both metadata and visual content.
-
-<p align="center">
-  <img src="images/communities_2.pdf" alt="Community Detection" width="100%"/>
-</p>
-
-**Figure 2**: Communities over the PKG: (a) Topologically disjoint entities grouped into shared communities reveal implicit consequentiality. (b) Macroscopic visualization of a PKG populated by entities, relationships, and thematic communities.
-
 ### System Components
 
 | Component | Description | Implementation |
