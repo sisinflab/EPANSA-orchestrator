@@ -582,7 +582,7 @@ The Personal Knowledge Graph source data resides in `evaluation/knowledge_base/`
 
 ### Benchmark Dataset
 
-The `IJCAI_Test_Dataset.csv` contains ground truth for evaluation with questions requiring cross-modal reasoning:
+The `qa_dataset.csv` contains ground truth for evaluation with questions requiring cross-modal reasoning:
 
 | Column | Description |
 |--------|-------------|
